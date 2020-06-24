@@ -75,16 +75,16 @@ class PackageInfoCommand : AbstractCommand("packageinfo", listOf("correios", "ct
 
 	fun getCorreiosInfo(packageId: String): Pair<String, String>? {
 		// Eu encontrei a API REST do Correios usando engenharia reversa(tm) no SRO Mobile
-		var response = HttpRequest.post("http://webservice.correios.com.br/service/rest/rastro/rastroMobile")
+		val response = HttpRequest.post("http://webservice.correios.com.br/service/rest/rastro/rastroMobile")
 				.contentType("application/xml")
 				.userAgent("Dalvik/2.1.0 (Linux; U; Android 7.1.2; MotoG3-TE Build/NJH47B)")
 				.acceptJson() // Sim, o request é em XML mas a response é em JSON
 				// E sim, não importa qual é o usuário/senha/token, ele sempre retorna algo válido
 				.send("<rastroObjeto><usuario>LorittaBot</usuario><senha>LorittaSuperFofa</senha><tipo>L</tipo><resultado>T</resultado><objetos>$packageId</objetos><lingua>101</lingua><token>Loritta-Discord</token></rastroObjeto>")
 
-		var correios = Loritta.GSON.fromJson(response.body(), CorreiosResponse::class.java)
+		val correios = Loritta.GSON.fromJson(response.body(), CorreiosResponse::class.java)
 
-		var objeto = correios.objeto[0]
+		val objeto = correios.objeto[0]
 
 		if (objeto.categoria == "ERRO: Objeto não encontrado na base de dados dos Correios.") {
 			return null
