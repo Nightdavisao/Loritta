@@ -39,7 +39,7 @@ class PackageInfoCommand : AbstractCommand("packageinfo", listOf("correios", "ct
 				if (pair == null) {
 					context.reply(
 							LoriReply(
-									message = context.getAsMention(true) + locale["PACKAGEINFO_COULDNT_FIND", packageId],
+									message = locale["PACKAGEINFO_COULDNT_FIND", packageId],
 									prefix = Constants.ERROR
 							)
 					)
