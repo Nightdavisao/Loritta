@@ -1,4 +1,4 @@
-package net.perfectdreams.loritta.plugin.malcommands.util
+package net.perfectdreams.loritta.plugin.malcommands.utils
 
 import java.awt.Color
 

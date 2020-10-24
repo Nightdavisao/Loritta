@@ -1,14 +1,12 @@
 package net.perfectdreams.loritta.plugin.malcommands.models
 
 class MalAnime(
-        val image: String,
-        val url: String,
+        val image: String?,
         val info: AnimeInfo,
-        // not sure if this should be String
-        val score: String,
-        val synopsis: String,
-        val rank: String,
-        val popularity: String
+        val score: Float?,
+        val synopsis: String?,
+        val rank: Int?,
+        val popularity: Int?
 //        val background: String?,
 //        val related: Array<String>?,
 //        val characters: Array<String>?,
@@ -17,12 +15,13 @@ class MalAnime(
 
 class AnimeInfo(
         val name: String,
-        val type: AnimeType,
+        val type: AnimeType?,
         // Alternative names usually are english, synonyms (and the original japanese name, of course)
 //        val altNames: Array<String>,
         // Episodes can be null, because MAL also store upcoming animes
+        val duration: String?,
         val episodes: Int?,
-        val status: AnimeStatus,
+        val status: AnimeStatus?,
 //        // "Aired" value can be null, because of non-available animes (?)
         val aired: String?,
 //        val premiered: String,
@@ -34,14 +33,13 @@ class AnimeInfo(
         val source: String?,
         // we don't really need to make a enum class for this one
         val genres: List<String>?
-//        val duration: String,
 //        val rating: String
 )
 
 enum class AnimeStatus {
-    FINISHED_AIRING, CURRENTLY_AIRING, NOT_YET_AIRED, UNKNOWN
+    FINISHED_AIRING, CURRENTLY_AIRING, NOT_YET_AIRED
 }
 
 enum class AnimeType {
-    TV, MOVIE, OVA, ONA, SPECIAL, UNKNOWN
+    TV, MOVIE, OVA, ONA, SPECIAL
 }
