@@ -3,7 +3,9 @@ package com.mrpowergamerbr.loritta.utils
 import com.mrpowergamerbr.loritta.Loritta
 import net.dv8tion.jda.api.OnlineStatus
 import net.dv8tion.jda.api.entities.Guild
-import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.User
+import net.perfectdreams.loritta.utils.ImageFormat
+import net.perfectdreams.loritta.utils.extensions.getEffectiveAvatarUrl
 import java.awt.Color
 import java.awt.Font
 import java.awt.Image
@@ -419,11 +421,11 @@ object TretaNewsGenerator {
 				"https://yt3.ggpht.com/-bIkhJe7-vdk/AAAAAAAAAAI/AAAAAAAAAAA/m5AyW98M-CY/s176-c-k-no-mo-rj-c0xffffff/photo.jpg")
 	}
 
-	fun generate(guild: Guild, usr1: Member, usr2: Member): GeneratedTretaNews {
+	fun generate(guild: Guild, usr1: User, usr2: User): GeneratedTretaNews {
 		val randomYt = ArrayList(TretaNewsGenerator.randomYt)
 
-		val str1 = usr1.effectiveName.stripCodeMarks()
-		val str2 = usr2.effectiveName.stripCodeMarks()
+		val str1 = usr1.name.stripCodeMarks()
+		val str2 = usr2.name.stripCodeMarks()
 		randomYt.add(str1)
 		randomYt.add(str2)
 
@@ -433,8 +435,8 @@ object TretaNewsGenerator {
 			}
 		}
 
-		val url1 = usr1.user.effectiveAvatarUrl
-		val url2 = usr2.user.effectiveAvatarUrl
+		val url1 = usr1.getEffectiveAvatarUrl(ImageFormat.PNG, 128)
+		val url2 = usr2.getEffectiveAvatarUrl(ImageFormat.PNG, 128)
 
 		var avatar = LorittaUtils.downloadImage(url1)
 		var avatar2 = LorittaUtils.downloadImage(url2)
