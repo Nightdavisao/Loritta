@@ -144,7 +144,7 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(MorseCommand())
 		commandMap.add(OCRCommand())
 		commandMap.add(EncodeCommand())
-		commandMap.add(LyricsCommand())
+		//commandMap.add(LyricsCommand())
 
 		// =======[ DISCORD ]=======
 		commandMap.add(createBotinfoCommand())

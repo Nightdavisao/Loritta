@@ -31,6 +31,7 @@ import net.perfectdreams.loritta.commands.vanilla.`fun`.*
 import net.perfectdreams.loritta.commands.vanilla.administration.*
 import net.perfectdreams.loritta.commands.vanilla.economy.*
 import net.perfectdreams.loritta.commands.vanilla.magic.*
+import net.perfectdreams.loritta.commands.vanilla.music.LyricsCommand
 import net.perfectdreams.loritta.commands.vanilla.social.*
 import net.perfectdreams.loritta.dao.Payment
 import net.perfectdreams.loritta.platform.discord.commands.DiscordCommandMap
@@ -97,7 +98,10 @@ abstract class LorittaDiscord(var discordConfig: GeneralDiscordConfig, var disco
                 GiveawayCommand(this@LorittaDiscord),
                 GiveawayEndCommand(this@LorittaDiscord),
                 GiveawayRerollCommand(this@LorittaDiscord),
-                GiveawaySetupCommand(this@LorittaDiscord)
+                GiveawaySetupCommand(this@LorittaDiscord),
+
+                // === [ UTILS ] ===
+                LyricsCommand(this@LorittaDiscord)
         )
     }
 
