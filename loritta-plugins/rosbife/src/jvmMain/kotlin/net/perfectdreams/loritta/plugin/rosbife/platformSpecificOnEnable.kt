@@ -1,7 +1,11 @@
 package net.perfectdreams.loritta.plugin.rosbife
 
 // import net.perfectdreams.loritta.plugin.rosbife.commands.AtendenteCommand
-import net.perfectdreams.loritta.plugin.rosbife.commands.*
+import net.perfectdreams.loritta.plugin.rosbife.commands.CocieloChavesCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.CortesFlowCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.MorrePragaCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.TerminatorCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.ToBeContinuedCommand
 
 actual fun RosbifePlugin.platformSpecificOnEnable() {
 	registerCommands(
@@ -9,7 +13,7 @@ actual fun RosbifePlugin.platformSpecificOnEnable() {
 			ToBeContinuedCommand(this),
 			TerminatorCommand(this),
 			MorrePragaCommand(this),
-			CarlyAaahCommand(this),
-			PetPetCommand(this)
+			CortesFlowCommand(this),
+			CocieloChavesCommand(this)
 	)
 }

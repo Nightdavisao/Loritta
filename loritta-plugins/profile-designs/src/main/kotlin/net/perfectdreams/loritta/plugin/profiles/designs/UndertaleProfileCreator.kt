@@ -6,17 +6,16 @@ import com.mrpowergamerbr.loritta.profile.ProfileCreator
 import com.mrpowergamerbr.loritta.profile.ProfileUserInfoData
 import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import net.dv8tion.jda.api.entities.Guild
-import net.dv8tion.jda.api.entities.Member
+import net.perfectdreams.loritta.profile.ProfileUtils
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.*
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 class UndertaleProfileCreator : ProfileCreator("undertaleBattle") {
-	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
-		val profileWrapper = ImageIO.read(File(Loritta.ASSETS, "profile/undertale/profile_wrapper.png"))
+	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
+		val profileWrapper = readImage(File(Loritta.ASSETS, "profile/undertale/profile_wrapper.png"))
 
 		val determinationMono = Constants.DETERMINATION_MONO
 
@@ -40,7 +39,7 @@ class UndertaleProfileCreator : ProfileCreator("undertaleBattle") {
 
 		drawBadges(badges, graphics)
 
-		drawMarriageStatus(userProfile, locale.toNewLocale(), graphics)
+		drawMarriageStatus(userProfile, locale, graphics)
 
 		val biggestStrWidth = drawUserInfo(user, userProfile, guild, graphics)
 
@@ -86,7 +85,10 @@ class UndertaleProfileCreator : ProfileCreator("undertaleBattle") {
 		val userInfo = mutableListOf<String>()
 		userInfo.add("Global")
 		val globalPosition = ProfileUtils.getGlobalExperiencePosition(userProfile)
-		userInfo.add("#$globalPosition / ${userProfile.xp} XP")
+		if (globalPosition != null)
+			userInfo.add("#$globalPosition / ${userProfile.xp} XP")
+		else
+			userInfo.add("${userProfile.xp} XP")
 
 		if (guild != null) {
 			val localProfile = ProfileUtils.getLocalProfile(guild, user)
@@ -98,7 +100,11 @@ class UndertaleProfileCreator : ProfileCreator("undertaleBattle") {
 			// Iremos remover os emojis do nome da guild, já que ele não calcula direito no stringWidth
 			userInfo.add(guild.name.replace(Constants.EMOJI_PATTERN.toRegex(), ""))
 			if (xpLocal != null) {
-				userInfo.add("#$localPosition / $xpLocal XP")
+				if (localPosition != null) {
+					userInfo.add("#$localPosition / $xpLocal XP")
+				} else {
+					userInfo.add("$xpLocal XP")
+				}
 			} else {
 				userInfo.add("???")
 			}
@@ -107,7 +113,10 @@ class UndertaleProfileCreator : ProfileCreator("undertaleBattle") {
 		val globalEconomyPosition = ProfileUtils.getGlobalEconomyPosition(userProfile)
 
 		userInfo.add("Sonhos")
-		userInfo.add("#$globalEconomyPosition / ${userProfile.money}")
+		if (globalEconomyPosition != null)
+			userInfo.add("#$globalEconomyPosition / ${userProfile.money}")
+		else
+			userInfo.add("${userProfile.money}")
 
 		val biggestStrWidth = graphics.fontMetrics.stringWidth(userInfo.maxBy { graphics.fontMetrics.stringWidth(it) }!!)
 

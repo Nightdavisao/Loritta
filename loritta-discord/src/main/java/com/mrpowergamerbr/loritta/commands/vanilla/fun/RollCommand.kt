@@ -5,47 +5,47 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.commands.vanilla.utils.CalculadoraCommand
 import com.mrpowergamerbr.loritta.utils.Constants
-import net.perfectdreams.loritta.api.messages.LorittaReply
-import com.mrpowergamerbr.loritta.utils.LorittaUtils
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import com.mrpowergamerbr.loritta.utils.locale.LocaleStringData
 import com.mrpowergamerbr.loritta.utils.remove
 import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandArguments
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.Emotes
 import net.perfectdreams.loritta.utils.GenericReplies
+import net.perfectdreams.loritta.utils.math.MathUtils
 
 class RollCommand : AbstractCommand("roll", listOf("rolar", "dice", "dado"), CommandCategory.FUN) {
 	companion object {
-		private const val LOCALE_PREFIX = "commands.fun.roll"
+		private const val LOCALE_PREFIX = "commands.command.roll"
 	}
 
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale.toNewLocale()["$LOCALE_PREFIX.description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("$LOCALE_PREFIX.description")
 
-	override fun getUsage(locale: LegacyBaseLocale): CommandArguments {
+	override fun getUsage(): CommandArguments {
 		return arguments {
 			argument(ArgumentType.NUMBER) {
 				optional = true
-				defaultValue = "6"
-				explanation = locale.toNewLocale()["$LOCALE_PREFIX.howMuchSides"]
+				defaultValue = LocaleStringData("6")
+				explanation = LocaleKeyData("$LOCALE_PREFIX.howMuchSides")
 			}
 		}
 	}
 
-	override fun getExamples(locale: LegacyBaseLocale): List<String> {
-		return listOf("", "12", "24", "2d20", "3d5", "4d10", "5..10", "5..10d10")
-	}
+	override fun getExamplesKey() = LocaleKeyData("commands.command.roll.examples")
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		var quantity = 1L
 		var lowerBound = 1L
 		var upperBound = 6L
 		var expression = ""
 
 		if (context.args.isNotEmpty()) {
+			val joinedArgs = context.args.joinToString(" ")
+
 			try {
 				fun setBounds(arg: String) {
 					// Se o usuário inserir...
@@ -60,8 +60,6 @@ class RollCommand : AbstractCommand("roll", listOf("rolar", "dice", "dado"), Com
 					}
 				}
 
-				val joinedArgs = context.args.joinToString(" ")
-
 				if (context.args[0].contains("d")) {
 					val values = context.args[0].split("d")
 
@@ -74,7 +72,7 @@ class RollCommand : AbstractCommand("roll", listOf("rolar", "dice", "dado"), Com
 				if (context.args.size >= 2) {
 					expression = context.args.remove(0).joinToString(" ")
 					try {
-						LorittaUtils.evalMath(Loritta.RANDOM.nextLong(lowerBound, upperBound + 1).toString() + expression).toInt().toString()
+						MathUtils.evaluate(Loritta.RANDOM.nextLong(lowerBound, upperBound + 1).toString() + expression).toInt().toString()
 					} catch (ex: RuntimeException) {
 						context.reply(
                                 LorittaReply(
@@ -89,10 +87,9 @@ class RollCommand : AbstractCommand("roll", listOf("rolar", "dice", "dado"), Com
 					}
 				}
 			} catch (e: Exception) {
-				GenericReplies.invalidNumber(context, expression)
+				GenericReplies.invalidNumber(context, joinedArgs)
 				return
 			}
-
 		}
 
 		if (quantity > 100) {
@@ -134,7 +131,7 @@ class RollCommand : AbstractCommand("roll", listOf("rolar", "dice", "dado"), Com
 		if (expression.isNotEmpty()) {
 			response += " = ${finalResult.toInt()} `${expression.trim()}"
 
-			finalResult = LorittaUtils.evalMath(finalResult.toString() + expression).toFloat()
+			finalResult = MathUtils.evaluate(finalResult.toString() + expression).toFloat()
 
 			response += " = ${finalResult.toInt()}`"
 		}

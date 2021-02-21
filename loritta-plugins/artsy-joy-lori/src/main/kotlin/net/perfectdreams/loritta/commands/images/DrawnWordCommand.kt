@@ -3,81 +3,84 @@ package net.perfectdreams.loritta.commands.images
 import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
 import com.mrpowergamerbr.loritta.utils.substringIfNeeded
-import net.perfectdreams.commands.annotation.Subcommand
-import net.perfectdreams.loritta.api.commands.*
+import net.perfectdreams.loritta.api.commands.ArgumentType
+import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.api.utils.image.JVMImage
+import net.perfectdreams.loritta.platform.discord.LorittaDiscord
+import net.perfectdreams.loritta.platform.discord.commands.DiscordAbstractCommandBase
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.FontMetrics
 import java.awt.Graphics
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
-class DrawnWordCommand : LorittaCommand(arrayOf("drawnword"), CommandCategory.IMAGES) {
-    override val needsToUploadFiles = true
-
-    override fun getDescription(locale: BaseLocale): String? {
-        return locale["commands.images.drawnword.description"]
+class DrawnWordCommand(loritta: LorittaDiscord) : DiscordAbstractCommandBase(loritta, listOf("drawnword"), CommandCategory.IMAGES) {
+    companion object {
+        private const val LOCALE_PREFIX = "commands.command"
     }
 
-    override fun getUsage(locale: BaseLocale): CommandArguments {
-        return arguments {
-            argument(ArgumentType.TEXT) {}
+    override fun command() = create {
+        needsToUploadFiles = true
+
+        localizedDescription("$LOCALE_PREFIX.drawnword.description")
+        localizedExamples("$LOCALE_PREFIX.drawnword.examples")
+
+        usage {
+            arguments {
+                argument(ArgumentType.TEXT) {}
+            }
         }
-    }
 
-    override fun getExamples(locale: BaseLocale): List<String> {
-        return locale.getList("commands.images.drawnword.examples")
-    }
+        executesDiscord {
+            val context = this
 
-    @Subcommand
-    suspend fun root(context: LorittaCommandContext, locale: BaseLocale, args: Array<String>) {
-        if (args.isNotEmpty()) {
+            if (args.isEmpty()) explainAndExit()
+
             val text = args.joinToString(" ").substringIfNeeded(0..800)
 
             fun getTextWrapSpacesRequiredHeight(text: String, startX: Int, startY: Int, endX: Int, endY: Int, fontMetrics: FontMetrics, graphics: Graphics): Int {
-                val lineHeight = fontMetrics.height // Aqui é a altura da nossa fonte
+                val lineHeight = fontMetrics.height
 
-                var currentX = startX // X atual
-                var currentY = startY // Y atual
+                var currentX = startX
+                var currentY = startY
 
-                val split = text.split("((?<= )|(?= ))".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray() // Nós precisamos deixar os espaços entre os splits!
+                val split = text.split("((?<= )|(?= ))".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
                 for (str in split) {
-                    var width = fontMetrics.stringWidth(str) // Width do texto que nós queremos colocar
-                    if (currentX + width > endX) { // Se o currentX é maior que o endX... (Nós usamos currentX + width para verificar "ahead of time")
-                        currentX = startX // Nós iremos fazer wrapping do texto
+                    var width = fontMetrics.stringWidth(str)
+                    if (currentX + width > endX) {
+                        currentX = startX
                         currentY += lineHeight
                     }
                     var idx = 0
-                    for (c in str.toCharArray()) { // E agora nós iremos printar todos os chars
+                    for (c in str.toCharArray()) {
                         idx++
                         if (c == '\n') {
-                            currentX = startX // Nós iremos fazer wrapping do texto
+                            currentX = startX
                             currentY += lineHeight
                             continue
                         }
                         width = fontMetrics.charWidth(c)
                         if (!graphics.font.canDisplay(c)) {
-                            // Talvez seja um emoji!
                             val emoteImage = ImageUtils.getTwitterEmoji(str, idx)
                             if (emoteImage != null) {
-                                // graphics.drawImage(emoteImage.getScaledInstance(width, width, BufferedImage.SCALE_SMOOTH), currentX, currentY - width, null)
                                 currentX += width
                             }
 
                             continue
                         }
-                        // graphics.drawString(c.toString(), currentX, currentY) // Escreva o char na imagem
-                        currentX += width // E adicione o width no nosso currentX
+
+                        currentX += width
                     }
                 }
                 return currentY
             }
 
-            val drawnMaskWordImage  = ImageIO.read(File(Loritta.ASSETS, "drawn_mask_word.png"))
-            val drawnMaskWordBottomImage  = ImageIO.read(File(Loritta.ASSETS, "drawn_mask_word_bottom.png"))
-            val babyMaskChairImage = ImageIO.read(File(Loritta.ASSETS, "baby_mask_chair.png"))
+            val drawnMaskWordImage = readImage(File(Loritta.ASSETS, "drawn_mask_word.png"))
+            val drawnMaskWordBottomImage = readImage(File(Loritta.ASSETS, "drawn_mask_word_bottom.png"))
+            val babyMaskChairImage = readImage(File(Loritta.ASSETS, "baby_mask_chair.png"))
 
             var wordScreenHeight = drawnMaskWordImage.height
 
@@ -89,8 +92,7 @@ class DrawnWordCommand : LorittaCommand(arrayOf("drawnword"), CommandCategory.IM
             graphics.font = font2
             val fontMetrics = graphics.fontMetrics
 
-            val lineHeight = fontMetrics.height // Aqui é a altura da nossa fonte
-
+            val lineHeight = fontMetrics.height
             val startY = 90
 
             val currentY = getTextWrapSpacesRequiredHeight(
@@ -108,11 +110,10 @@ class DrawnWordCommand : LorittaCommand(arrayOf("drawnword"), CommandCategory.IM
             val pixelsNeeded = currentY - startY
 
             if (currentJumps > 4) {
-                val overflownPixels = (pixelsNeeded - (lineHeight * 3)) + lineHeight + lineHeight // Esse + lineHeight é por causa que os pixels da primeira linha overflow não são considerados
+                val overflownPixels = (pixelsNeeded - (lineHeight * 3)) + lineHeight + lineHeight
                 val requiredPastes = (overflownPixels / 53)
 
                 wordScreenHeight += (53 * requiredPastes) - 27
-                // wordScreenHeight += 13
             }
 
             val wordScreen = BufferedImage(drawnMaskWordImage.width, wordScreenHeight, BufferedImage.TYPE_INT_ARGB)
@@ -129,14 +130,13 @@ class DrawnWordCommand : LorittaCommand(arrayOf("drawnword"), CommandCategory.IM
             val fontMetrics2 = wordScreenGraphics.fontMetrics
 
             if (currentJumps > 4) {
-                val overflownPixels = (pixelsNeeded - (lineHeight * 3)) + lineHeight + lineHeight // + lineHeight + lineHeight // Esse + lineHeight é por causa que os pixels da primeira linha overflow não são considerados
+                val overflownPixels = (pixelsNeeded - (lineHeight * 3)) + lineHeight + lineHeight
                 val requiredPastes = (overflownPixels / 53)
 
                 var currentY = (drawnMaskWordImage.height - 40)
 
                 repeat(requiredPastes) {
                     wordScreenGraphics.drawImage(drawnMaskWordBottomImage, 0, currentY, null)
-                    // wordScreenGraphics.drawLine(0, currentY, 250, currentY)
 
                     currentY += 53
                 }
@@ -159,9 +159,7 @@ class DrawnWordCommand : LorittaCommand(arrayOf("drawnword"), CommandCategory.IM
             imageGraphics.drawImage(wordScreen, 218, 0, null)
             imageGraphics.drawImage(babyMaskChairImage, 0, image.height - babyMaskChairImage.height, null)
 
-            context.sendFile(image, "drawn_word.png", context.getAsMention(true))
-        } else {
-            context.explain()
+            context.sendImage(JVMImage(image), "drawn_word.png", context.getUserMention(true))
         }
     }
 }

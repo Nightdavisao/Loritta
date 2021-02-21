@@ -5,28 +5,28 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.dao.Warn
 import com.mrpowergamerbr.loritta.tables.Warns
 import com.mrpowergamerbr.loritta.utils.Constants
-import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.extensions.retrieveMemberOrNull
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import net.dv8tion.jda.api.Permission
 import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandArguments
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.Emotes
 import org.jetbrains.exposed.sql.and
 
-class UnwarnCommand : AbstractCommand("unwarn", listOf("desavisar"), CommandCategory.ADMIN) {
+class UnwarnCommand : AbstractCommand("unwarn", listOf("desavisar"), CommandCategory.MODERATION) {
 	companion object {
-		private val LOCALE_PREFIX = "commands.moderation"
+		private val LOCALE_PREFIX = "commands.command"
 	}
 
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["UNWARN_Description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.unwarn.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.unwarn.examples")
 
-	override fun getUsage(locale: LegacyBaseLocale): CommandArguments {
+	override fun getUsage(): CommandArguments {
 		return arguments {
 			argument(ArgumentType.USER) {
 				optional = false
@@ -53,7 +53,7 @@ class UnwarnCommand : AbstractCommand("unwarn", listOf("desavisar"), CommandCate
 		return listOf(Permission.KICK_MEMBERS, Permission.BAN_MEMBERS)
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val user = AdminUtils.checkForUser(context) ?: return
 
@@ -85,7 +85,7 @@ class UnwarnCommand : AbstractCommand("unwarn", listOf("desavisar"), CommandCate
 				if (context.args[1].toIntOrNull() == null) {
 					context.reply(
                             LorittaReply(
-                                    "${context.legacyLocale["INVALID_NUMBER", context.args[1]]}",
+									context.locale["commands.invalidNumber", context.args[1]],
                                     Constants.ERROR
                             )
 					)

@@ -4,12 +4,13 @@ import com.github.salomonbrys.kotson.jsonObject
 import com.github.salomonbrys.kotson.long
 import com.github.salomonbrys.kotson.obj
 import com.google.gson.JsonParser
-import net.perfectdreams.loritta.website.utils.WebsiteUtils
 import com.mrpowergamerbr.loritta.website.LoriWebCode
 import com.mrpowergamerbr.loritta.website.WebsiteAPIException
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.tables.SonhosBundles
@@ -17,6 +18,7 @@ import net.perfectdreams.loritta.utils.PerfectPaymentsClient
 import net.perfectdreams.loritta.utils.payments.PaymentReason
 import net.perfectdreams.loritta.website.routes.api.v1.RequiresAPIDiscordLoginRoute
 import net.perfectdreams.loritta.website.session.LorittaJsonWebSession
+import net.perfectdreams.loritta.website.utils.WebsiteUtils
 import net.perfectdreams.loritta.website.utils.extensions.respondJson
 import net.perfectdreams.temmiediscordauth.TemmieDiscordAuth
 import org.jetbrains.exposed.sql.and
@@ -34,7 +36,7 @@ class PostBundlesRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLoginRoute(l
 		if (!net.perfectdreams.loritta.website.utils.WebsiteUtils.checkIfAccountHasMFAEnabled(refreshedUserIdentification))
 			return
 
-		val payload = JsonParser.parseString(call.receiveText()).obj
+		val payload = withContext(Dispatchers.IO) { JsonParser.parseString(call.receiveText()).obj }
 
 		val bundleId = payload["id"].long
 
@@ -54,6 +56,7 @@ class PostBundlesRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLoginRoute(l
 					loritta,
 					userIdentification.id.toLong(),
 					"$sonhos sonhos - $whoDonated",
+					(grana * 100).toLong(),
 					(grana * 100).toLong(),
 					PaymentReason.SONHOS_BUNDLE,
 					"LORITTA-BUNDLE-%d",

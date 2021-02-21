@@ -5,27 +5,27 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.io.File
-import javax.imageio.ImageIO
 
 class PrimeirasPalavrasCommand : AbstractCommand("firstwords", listOf("primeiraspalavras"), CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["PRIMEIRAS_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.firstwords.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.firstwords.examples")
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val str = context.args.joinToString(" ")
 
-			val bi = ImageIO.read(File(Loritta.ASSETS + "tirinha_baby.png")) // Primeiro iremos carregar o nosso template
+			val bi = readImage(File(Loritta.ASSETS + "tirinha_baby.png")) // Primeiro iremos carregar o nosso template
 
 			val baseGraph = bi.graphics.enableFontAntiAliasing()
 

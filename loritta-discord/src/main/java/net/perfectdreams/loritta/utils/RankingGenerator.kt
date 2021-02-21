@@ -2,13 +2,13 @@ package net.perfectdreams.loritta.utils
 
 import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.utils.*
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.geom.Path2D
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 object RankingGenerator {
 	/**
@@ -20,7 +20,7 @@ object RankingGenerator {
 			rankedUsers: List<UserRankInformation>,
 			onNullUser: (suspend (Long) -> (CachedUserInfo?))? = null
 	): BufferedImage {
-		val rankHeader = ImageIO.read(File(Loritta.ASSETS, "rank_header.png"))
+		val rankHeader = readImage(File(Loritta.ASSETS, "rank_header.png"))
 		val base = BufferedImage(400, 300, BufferedImage.TYPE_INT_ARGB_PRE)
 		val graphics = base.graphics.enableFontAntiAliasing()
 
@@ -82,8 +82,8 @@ object RankingGenerator {
 
 				graphics.font = oswaldRegular10
 
-				if (profile.subsubtitle != null)
-					ImageUtils.drawTextWrap(profile.subsubtitle, 145, currentY + 48, 9999, 9999, graphics.fontMetrics, graphics)
+				// Show the user's ID in the subsubtitle
+				ImageUtils.drawTextWrap((profile.subsubtitle?.let { "$it // " } ?: "") + "ID: ${profile.userId}", 145, currentY + 48, 9999, 9999, graphics.fontMetrics, graphics)
 
 				val avatar = (
 						LorittaUtils.downloadImage(
@@ -113,6 +113,17 @@ object RankingGenerator {
 		}
 		return base
 	}
+
+	/**
+	 * Checks if the user is trying to retrieve a valid ranking page
+	 *
+	 * To avoid overloading the database with big useless ranking queries, we only allow
+	 * pages from 1 to 100 to be retrieved
+	 *
+	 * @param input the page input
+	 * @return if the input is in a valid range
+	 */
+	suspend fun isValidRankingPage(input: Long) = input in 1..100
 
 	data class UserRankInformation(
 			val userId: Long,

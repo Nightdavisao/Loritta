@@ -35,6 +35,51 @@ fun DIV.imgSrcSet(filePath: String, sizes: String, srcset: String, block : IMG.(
     }
 }
 
+fun DIV.generateNitroPayAdOrSponsor(sponsorId: Int, adSlot: String, adName: String? = null, callback: (NitroPayAdDisplay) -> (Boolean)) {
+    val sponsors = loritta.sponsors
+    val sponsor = sponsors.getOrNull(sponsorId)
+
+    if (sponsor != null) {
+        generateSponsor(sponsor)
+    } else {
+        generateNitroPayAdOrSponsor(sponsorId, "$adSlot-desktop", NitroPayAdDisplay.DESKTOP, "Loritta Daily Reward", callback.invoke(NitroPayAdDisplay.DESKTOP))
+        generateNitroPayAdOrSponsor(sponsorId, "$adSlot-phone", NitroPayAdDisplay.PHONE, "Loritta Daily Reward", callback.invoke(NitroPayAdDisplay.PHONE))
+        generateNitroPayAdOrSponsor(sponsorId, "$adSlot-tablet", NitroPayAdDisplay.TABLET, "Loritta Daily Reward", callback.invoke(NitroPayAdDisplay.TABLET))
+    }
+}
+
+fun DIV.generateNitroPayAd(adSlot: String, adName: String? = null) {
+    generateNitroPayAd("$adSlot-desktop", NitroPayAdDisplay.DESKTOP, "Loritta Daily Reward")
+    generateNitroPayAd("$adSlot-phone", NitroPayAdDisplay.PHONE, "Loritta Daily Reward")
+    generateNitroPayAd("$adSlot-tablet", NitroPayAdDisplay.TABLET, "Loritta Daily Reward")
+}
+
+fun DIV.generateNitroPayAdOrSponsor(sponsorId: Int, adSlot: String, displayType: NitroPayAdDisplay, adName: String? = null, showIfSponsorIsMissing: Boolean = true, showOnMobile: Boolean = true)
+        = generateNitroPayAdOrSponsor(loritta.sponsors, sponsorId, adSlot, displayType, adName, showIfSponsorIsMissing)
+
+fun DIV.generateNitroPayAdOrSponsor(sponsors: List<Sponsor>, sponsorId: Int, adSlot: String, displayType: NitroPayAdDisplay, adName: String? = null, showIfSponsorIsMissing: Boolean = true, showOnMobile: Boolean = true) {
+    val sponsor = sponsors.getOrNull(sponsorId)
+
+    if (sponsor != null) {
+        generateSponsor(sponsor)
+    } else if (showIfSponsorIsMissing) {
+        generateNitroPayAd(adSlot, displayType, adName)
+    }
+}
+
+fun DIV.generateNitroPayVideoAdOrSponsor(sponsorId: Int, adSlot: String, adName: String? = null, showIfSponsorIsMissing: Boolean = true, showOnMobile: Boolean = true)
+        = generateNitroPayVideoAdOrSponsor(loritta.sponsors, sponsorId, adSlot, adName, showIfSponsorIsMissing)
+
+fun DIV.generateNitroPayVideoAdOrSponsor(sponsors: List<Sponsor>, sponsorId: Int, adSlot: String, adName: String? = null, showIfSponsorIsMissing: Boolean = true, showOnMobile: Boolean = true) {
+    val sponsor = sponsors.getOrNull(sponsorId)
+
+    if (sponsor != null) {
+        generateSponsor(sponsor)
+    } else if (showIfSponsorIsMissing) {
+        generateNitroPayVideoAd(adSlot, adName)
+    }
+}
+
 fun DIV.generateAdOrSponsor(sponsorId: Int, adSlot: String, adName: String? = null, showIfSponsorIsMissing: Boolean = true, showOnMobile: Boolean = true)
         = generateAdOrSponsor(loritta.sponsors, sponsorId, adSlot, adName, showIfSponsorIsMissing)
 
@@ -44,7 +89,7 @@ fun DIV.generateAdOrSponsor(sponsors: List<Sponsor>, sponsorId: Int, adSlot: Str
     if (sponsor != null) {
         generateSponsor(sponsor)
     } else if (showIfSponsorIsMissing) {
-        generateAd(adSlot, adName, showIfSponsorIsMissing)
+        generateAd(adSlot, adName, showOnMobile)
     }
 }
 
@@ -110,6 +155,28 @@ fun DIV.generateAd(adSlot: String, adName: String? = null, showOnMobile: Boolean
             unsafe {
                 raw("(adsbygoogle = window.adsbygoogle || []).push({});")
             }
+        }
+    }
+}
+
+fun DIV.generateNitroPayAd(adId: String, displayType: NitroPayAdDisplay, adName: String? = null) {
+    // O "adName" não é utilizado para nada, só está aí para que fique mais fácil de analisar aonde está cada ad (caso seja necessário)
+    div(classes = "centralized-ad") {
+        div(classes = "nitropay-ad") {
+            id = adId
+            attributes["data-nitropay-ad-type"] = NitroPayAdType.STANDARD_BANNER.name.toLowerCase()
+            attributes["data-nitropay-ad-display"] = displayType.name.toLowerCase()
+        }
+    }
+}
+
+fun DIV.generateNitroPayVideoAd(adId: String, adName: String? = null) {
+    // O "adName" não é utilizado para nada, só está aí para que fique mais fácil de analisar aonde está cada ad (caso seja necessário)
+    div(classes = "centralized-ad") {
+        div(classes = "nitropay-ad") {
+            id = adId
+            attributes["data-nitropay-ad-type"] = NitroPayAdType.VIDEO_PLAYER.name.toLowerCase()
+            attributes["data-nitropay-ad-display"] = NitroPayAdDisplay.RESPONSIVE.name.toLowerCase()
         }
     }
 }

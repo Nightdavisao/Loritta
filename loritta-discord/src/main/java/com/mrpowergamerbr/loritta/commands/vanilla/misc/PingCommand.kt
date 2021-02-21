@@ -9,7 +9,8 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.LorittaShards
 import com.mrpowergamerbr.loritta.utils.extensions.await
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
 import io.ktor.client.request.get
@@ -28,11 +29,9 @@ import net.perfectdreams.loritta.utils.extensions.build
 import java.util.concurrent.TimeUnit
 
 class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["PING_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.ping.description")
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val arg0 = context.args.getOrNull(0)
 
 		if (arg0 == "shards" || arg0 == "clusters") {
@@ -80,6 +79,7 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 			val row2 = mutableListOf("Lori Web")
 			val row3 = mutableListOf("Uptime")
 			val row4 = mutableListOf("Guilds")
+			val row5 = mutableListOf("MsgQ")
 
 			results.forEach {
 				try {
@@ -88,6 +88,7 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 					val shardId = json["id"].long
 					val name = json["name"].string
 					val loriBuild = json["build"]["buildNumber"].string
+					val pendingMessages = json["pendingMessages"].long
 
 					val totalGuildCount = json["shards"].array.sumBy { it["guildCount"].int }
 
@@ -102,11 +103,20 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 
 					val pingAverage = json["shards"].array.map { it["ping"].int }.average().toInt() // arredondar
 
-					row0.add("Loritta Cluster $shardId ($name) [b$loriBuild]")
+					val pendingMessagesStatus = when {
+						pendingMessages == 0L -> "^"
+						16 >= pendingMessages -> "*"
+						32 >= pendingMessages -> "-"
+						128 >= pendingMessages -> "~"
+						else -> "!"
+					}
+
+					row0.add("$pendingMessagesStatus Cluster $shardId ($name) [b$loriBuild]")
 					row1.add("~${pingAverage}ms")
 					row2.add("~${time}ms")
 					row3.add("${days}d ${hours}h ${minutes}m ${seconds}s")
-					row4.add("$totalGuildCount guilds")
+					row4.add("$totalGuildCount")
+					row5.add("$pendingMessages")
 
 					val unstableShards = json["shards"].array.filter {
 						it["status"].string != JDA.Status.CONNECTED.toString() || it["ping"].int == -1 || it["ping"].int >= 250
@@ -118,21 +128,24 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 						row2.add("---")
 						row3.add("---")
 						row4.add("---")
+						row5.add("---")
 
 						unstableShards.forEach {
 							row0.add("> Shard ${it["id"].long}")
 							row1.add("${it["ping"].int}ms")
-							row2.add(it["status"].string)
-							row3.add("${it["guildCount"].long} guilds")
-							row4.add("${it["userCount"].long} users")
+							row2.add("---")
+							row3.add(it["status"].string)
+							row4.add("${it["guildCount"].long}")
+							row5.add("---")
 						}
 					}
 				} catch (e: ClusterOfflineException) {
-					row0.add("Loritta Cluster ${e.id} (${e.name})")
+					row0.add("X Cluster ${e.id} (${e.name})")
 					row1.add("---")
 					row2.add("---")
-					row3.add("---")
-					row4.add("OFFLINE!")
+					row3.add("OFFLINE!")
+					row4.add("---")
+					row5.add("---")
 				}
 			}
 
@@ -151,8 +164,8 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 					jvmUpTime -= TimeUnit.MINUTES.toMillis(minutes)
 					val seconds = TimeUnit.MILLISECONDS.toSeconds(jvmUpTime)
 
-					row2.add("${days}d ${hours}h ${minutes}m ${seconds}s")
-					row3.add("---")
+					row2.add("---")
+					row3.add("${days}d ${hours}h ${minutes}m ${seconds}s")
 
 					val wasMutexLocked = payload["isMutexLocked"].bool
 					row4.add(
@@ -170,6 +183,7 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 						row2.add("---")
 						row3.add("---")
 						row4.add("---")
+						row5.add("---")
 
 						for (usedLoginPool in usedLoginPools) {
 							row0.add("> Login Pool ${usedLoginPool.key}")
@@ -177,13 +191,15 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 							row2.add("---")
 							row3.add("---")
 							row4.add("---")
+							row5.add("---")
 						}
 					}
 				} catch (e: Exception) {
 					row1.add("---")
 					row2.add("---")
-					row3.add("---")
-					row4.add("OFFLINE!")
+					row3.add("OFFLINE!")
+					row4.add("---")
+					row5.add("---")
 				}
 			}
 
@@ -200,8 +216,9 @@ class PingCommand : AbstractCommand("ping", category = CommandCategory.MISC) {
 				val arg2 = row2.getOrNull(i) ?: "---"
 				val arg3 = row3.getOrNull(i) ?: "---"
 				val arg4 = row4.getOrNull(i) ?: "---"
+				val arg5 = row5.getOrNull(i) ?: "---"
 
-				lines += "${arg0.padEnd(maxRow0, ' ')} | ${arg1.padEnd(maxRow1, ' ')} | ${arg2.padEnd(maxRow2, ' ')} | ${arg3.padEnd(maxRow3, ' ')} | ${arg4.padEnd(maxRow4, ' ')}"
+				lines += "${arg0.padEnd(maxRow0, ' ')} | ${arg1.padEnd(maxRow1, ' ')} | ${arg2.padEnd(maxRow2, ' ')} | ${arg3.padEnd(maxRow3, ' ')} | ${arg4.padEnd(maxRow4, ' ')} | ${arg5.padEnd(maxRow4, ' ')}"
 			}
 
 			val asMessage = mutableListOf<String>()

@@ -6,8 +6,11 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
 import java.awt.Color
 import java.awt.Font
 import java.awt.image.BufferedImage
@@ -19,23 +22,17 @@ class DeusesCommand : AbstractCommand("deuses", category = CommandCategory.IMAGE
 		val TEMPLATE by lazy { ImageIO.read(File(Constants.ASSETS_FOLDER, "deuses.png")) }
 	}
 
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["DEUSES_DESCRIPTION"]
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("Quando você é nível 4 e vê pessoas de nível 100 jogando")
-	}
-
-	override fun getUsage(): String {
-		return "<texto>"
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.gods.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.gods.examples")
+	override fun getUsage() = arguments {
+		argument(ArgumentType.TEXT) {}
 	}
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val texto = context.args.joinToString(" ")
 

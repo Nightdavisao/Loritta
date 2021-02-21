@@ -2,26 +2,20 @@ package com.mrpowergamerbr.loritta.commands.vanilla.utils
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.escapeMentions
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.translate.GoogleTranslateUtils
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.messages.LorittaReply
 
 class TranslateCommand : AbstractCommand("traduzir", listOf("translate"), CommandCategory.UTILS) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["TRANSLATE_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.translate.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.translate.examples")
 
-	override fun getUsage(): String {
-		return "língua texto"
-	}
+	// TODO: Fix Usage
 
-	override fun getExamples(): List<String> {
-		return listOf("pt Hello World!")
-	}
-
-	override suspend fun run(context: CommandContext, locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext, locale: BaseLocale) {
 		if (context.args.size >= 2) {
 			val strLang = context.args[0]
 			context.args[0] = "" // Super workaround

@@ -5,27 +5,25 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.LorittaImage
 import com.mrpowergamerbr.loritta.utils.SeamCarver
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.ArgumentType
+import net.perfectdreams.loritta.api.commands.Command
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
 
 class ContentAwareScaleCommand : AbstractCommand("contentawarescale", listOf("cas", "contentaware", "seamcarver"), category = CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["CONTENTAWARESCALE_Description"]
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("@Loritta")
-	}
-
-	override fun getUsage(): String {
-		return "<imagem>"
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.contentawarescale.description")
+	override fun getExamplesKey() = Command.SINGLE_IMAGE_EXAMPLES_KEY
+	override fun getUsage() = arguments {
+		argument(ArgumentType.IMAGE) {}
 	}
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		var contextImage = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 
 		val loriImage = LorittaImage(contextImage)

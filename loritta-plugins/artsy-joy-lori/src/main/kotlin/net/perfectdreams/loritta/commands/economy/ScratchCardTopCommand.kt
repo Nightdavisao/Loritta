@@ -1,13 +1,12 @@
 package net.perfectdreams.loritta.commands.economy
 
-import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.network.Databases
-import com.mrpowergamerbr.loritta.utils.*
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import net.perfectdreams.commands.annotation.Subcommand
+import com.mrpowergamerbr.loritta.utils.Constants
 import net.perfectdreams.loritta.api.commands.*
-import net.perfectdreams.loritta.platform.discord.entities.DiscordCommandContext
-import net.perfectdreams.loritta.tables.BomDiaECiaWinners
+import net.perfectdreams.loritta.api.messages.LorittaReply
+import net.perfectdreams.loritta.api.utils.image.JVMImage
+import net.perfectdreams.loritta.platform.discord.LorittaDiscord
+import net.perfectdreams.loritta.platform.discord.commands.DiscordAbstractCommandBase
 import net.perfectdreams.loritta.tables.Raspadinhas
 import net.perfectdreams.loritta.utils.RankingGenerator
 import org.jetbrains.exposed.sql.SortOrder
@@ -15,70 +14,75 @@ import org.jetbrains.exposed.sql.count
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.sum
 import org.jetbrains.exposed.sql.transactions.transaction
-import java.awt.Color
-import java.awt.Graphics2D
-import java.awt.Rectangle
-import java.awt.geom.Path2D
-import java.awt.image.BufferedImage
-import java.io.File
-import javax.imageio.ImageIO
 
-class ScratchCardTopCommand : LorittaCommand(arrayOf("scratchcard top", "raspadinha top"), CommandCategory.ECONOMY) {
-	override fun getDescription(locale: BaseLocale): String? {
-		return locale["commands.economy.scratchcardtop.description"]
+class ScratchCardTopCommand(loritta: LorittaDiscord) : DiscordAbstractCommandBase(loritta, listOf("scratchcard top", "raspadinha top"), CommandCategory.ECONOMY) {
+	companion object {
+		private const val LOCALE_PREFIX = "commands.command"
 	}
 
-	override fun getExamples(locale: BaseLocale): List<String> {
-		return listOf()
-	}
+	override fun command() = create {
+		localizedDescription("$LOCALE_PREFIX.scratchcardtop.description")
 
-	override fun getUsage(locale: BaseLocale): CommandArguments {
-		return arguments {
-			argument(ArgumentType.NUMBER) {
-				optional = true
+		usage {
+			arguments {
+				argument(ArgumentType.NUMBER) {
+					optional = true
+				}
 			}
 		}
-	}
 
-	@Subcommand
-	suspend fun run(context: DiscordCommandContext, locale: BaseLocale) {
-		var page = context.args.getOrNull(0)?.toLongOrNull()
+		executesDiscord {
+			val context = this
 
-		if (page != null)
-			page -= 1
+			var page = context.args.getOrNull(0)?.toLongOrNull()
 
-		if (page == null)
-			page = 0
+			if (page != null && !RankingGenerator.isValidRankingPage(page)) {
+				context.reply(
+						LorittaReply(
+								locale["commands.invalidRankingPage"],
+								Constants.ERROR
+						)
+				)
+				return@executesDiscord
+			}
 
-		val userId = Raspadinhas.receivedById
-		val ticketCount = Raspadinhas.receivedById.count()
-		val moneySum = Raspadinhas.value.sum()
+			if (page != null)
+				page -= 1
 
-		val userData = transaction(Databases.loritta) {
-			Raspadinhas.slice(userId, ticketCount, moneySum)
-					.selectAll()
-					.groupBy(userId)
-					.having {
-						moneySum.isNotNull()
-					}
-					.orderBy(moneySum, SortOrder.DESC)
-					.limit(5, page * 5)
-					.toMutableList()
-		}
+			if (page == null)
+				page = 0
 
-		context.sendFile(
-				RankingGenerator.generateRanking(
-						"Ranking Global",
-						null,
-						userData.map {
-							RankingGenerator.UserRankInformation(
-									it[userId],
-									locale["commands.economy.scratchcardtop.wonTickets", it[moneySum].toString(), it[ticketCount].toString()]
-							)
+			val userId = Raspadinhas.receivedById
+			val ticketCount = Raspadinhas.receivedById.count()
+			val moneySum = Raspadinhas.value.sum()
+
+			val userData = transaction(Databases.loritta) {
+				Raspadinhas.slice(userId, ticketCount, moneySum)
+						.selectAll()
+						.groupBy(userId)
+						.having {
+							moneySum.isNotNull()
 						}
-				),
-				"rank.png",
-				context.getAsMention(true)
-		)
+						.orderBy(moneySum, SortOrder.DESC)
+						.limit(5, page * 5)
+						.toMutableList()
+			}
+
+			context.sendImage(
+					JVMImage(
+						RankingGenerator.generateRanking(
+								"Ranking Global",
+								null,
+								userData.map {
+									RankingGenerator.UserRankInformation(
+											it[userId],
+											locale["$LOCALE_PREFIX.scratchcardtop.wonTickets", it[moneySum].toString(), it[ticketCount].toString()]
+									)
+								}
+						)),
+					"rank.png",
+					context.getUserMention(true)
+			)
+		}
 	}
 }

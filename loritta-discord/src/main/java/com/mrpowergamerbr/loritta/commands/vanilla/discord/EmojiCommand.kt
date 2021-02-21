@@ -3,8 +3,13 @@ package com.mrpowergamerbr.loritta.commands.vanilla.discord
 import com.github.kevinsawicki.http.HttpRequest
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import com.mrpowergamerbr.loritta.utils.*
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.Constants
+import com.mrpowergamerbr.loritta.utils.ImageUtils
+import com.mrpowergamerbr.loritta.utils.LorittaUtils
+import com.mrpowergamerbr.loritta.utils.isValidSnowflake
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import com.mrpowergamerbr.loritta.utils.lorittaShards
 import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.entities.Emote
 import net.perfectdreams.loritta.api.commands.CommandCategory
@@ -12,13 +17,9 @@ import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.Emotes
 
 class EmojiCommand : AbstractCommand("emoji", category = CommandCategory.DISCORD) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["EMOJI_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.emoji.description")
 
-	override fun getUsage(): String {
-		return "emoji"
-	}
+	// TODO: Fix Usage
 
 	override fun getExamples(): List<String> {
 		return listOf("😏")
@@ -28,7 +29,7 @@ class EmojiCommand : AbstractCommand("emoji", category = CommandCategory.DISCORD
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.size == 1) {
 			val arg0 = context.rawArgs[0]
 			val firstEmote = context.message.emotes.firstOrNull()
@@ -47,7 +48,7 @@ class EmojiCommand : AbstractCommand("emoji", category = CommandCategory.DISCORD
 				} else {
 					context.reply(
                             LorittaReply(
-                                    locale.toNewLocale()["commands.discord.emoji.notFoundId", "`$arg0`"],
+                                    locale["commands.command.emoji.notFoundId", "`$arg0`"],
                                     Constants.ERROR
                             )
 					)
@@ -71,7 +72,7 @@ class EmojiCommand : AbstractCommand("emoji", category = CommandCategory.DISCORD
 					if (HttpRequest.get("https://twemoji.maxcdn.com/2/72x72/$value.png").code() != 200) {
 						context.reply(
                                 LorittaReply(
-                                        context.locale["commands.discord.emoji.errorWhileDownloadingEmoji", Emotes.LORI_SHRUG],
+                                        context.locale["commands.command.emoji.errorWhileDownloadingEmoji", Emotes.LORI_SHRUG],
                                         Constants.ERROR
                                 )
 						)
@@ -82,6 +83,8 @@ class EmojiCommand : AbstractCommand("emoji", category = CommandCategory.DISCORD
 				} catch (e: Exception) {
 					e.printStackTrace()
 				}
+			} else {
+				context.explain()
 			}
 		} else {
 			context.explain()

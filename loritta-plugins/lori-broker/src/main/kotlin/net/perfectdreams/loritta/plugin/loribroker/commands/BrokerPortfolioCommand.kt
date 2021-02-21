@@ -6,11 +6,12 @@ import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.platform.discord.commands.DiscordAbstractCommandBase
 import net.perfectdreams.loritta.plugin.loribroker.LoriBrokerPlugin
 import net.perfectdreams.loritta.plugin.loribroker.tables.BoughtStocks
+import net.perfectdreams.loritta.utils.Emotes
 import org.jetbrains.exposed.sql.select
 
 class BrokerPortfolioCommand(val plugin: LoriBrokerPlugin) : DiscordAbstractCommandBase(plugin.loritta, plugin.aliases.flatMap { listOf("$it portfolio", "$it portfólio", "$it p") }, CommandCategory.ECONOMY) {
 	override fun command() = create {
-		localizedDescription("commands.economy.brokerPortfolio.description")
+		localizedDescription("commands.command.brokerportfolio.description")
 
 		executesDiscord {
 			// This may seem extremely dumb
@@ -30,17 +31,20 @@ class BrokerPortfolioCommand(val plugin: LoriBrokerPlugin) : DiscordAbstractComm
 			}
 
 			val embed = plugin.getBaseEmbed()
-					.setTitle(locale["commands.economy.brokerPortfolio.title"])
+					.setTitle("${Emotes.LORI_STONKS} ${locale["commands.command.brokerportfolio.title"]}")
 
 			for ((tickerId, totalSpent) in totalStockExpensesById) {
 				val ticker = plugin.tradingApi
 						.getOrRetrieveTicker(tickerId, listOf("lp", "description"))
 
-				val tickerName = plugin.fancyTickerNames[tickerId]
+				val tickerName = plugin.trackedTickerCodes[tickerId]
 
 				val stockCount = totalStockCountById[tickerId] ?: 0
 
-				val totalGainsIfSoldNow = plugin.convertReaisToSonhos(ticker["lp"]!!.jsonPrimitive.double) * stockCount
+				val totalGainsIfSoldNow = plugin.convertToSellingPrice(
+						plugin.convertReaisToSonhos(ticker[LoriBrokerPlugin.CURRENT_PRICE_FIELD]!!.jsonPrimitive.double)
+				) * stockCount
+				
 				val diff = totalGainsIfSoldNow - totalSpent
 				val emoji = when {
 					diff > 0 -> "\uD83D\uDD3C"
@@ -48,12 +52,14 @@ class BrokerPortfolioCommand(val plugin: LoriBrokerPlugin) : DiscordAbstractComm
 					else -> "⏹️"
 				}
 
+				val changePercentage = ticker["chp"]?.jsonPrimitive?.double!!
+
 				embed.addField(
-						"$emoji `${ticker["short_name"]?.jsonPrimitive?.content}` ($tickerName)",
+						"$emoji `${ticker["short_name"]?.jsonPrimitive?.content}` ($tickerName) | ${"%.2f".format(changePercentage)}%",
 						locale[
-								"commands.economy.brokerPortfolio.youHaveStocksInThisTicker",
+								"commands.command.brokerportfolio.youHaveStocksInThisTicker",
 								stockCount,
-								locale["commands.economy.broker.stocks.${if (stockCount == 1L) "one" else "multiple"}"],
+								locale["commands.command.broker.stocks.${if (stockCount == 1L) "one" else "multiple"}"],
 								totalSpent,
 								totalGainsIfSoldNow,
 								diff.let { if (it > 0) "+$it" else it.toString() }

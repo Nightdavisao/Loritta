@@ -5,33 +5,30 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.io.File
-import javax.imageio.ImageIO
 
 class LaranjoCommand : AbstractCommand("laranjo", category = CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["LARANJO_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.laranjo.description")
 
 	override fun getExamples(): List<String> {
 		return listOf("ei ademin bane o cara ai pfv")
 	}
 
-	override fun getUsage(): String {
-		return "<texto>"
-	}
+	// TODO: Fix Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
-			val template = ImageIO.read(File(Loritta.ASSETS + "laranjo.png")) // Template
+			val template = readImage(File(Loritta.ASSETS + "laranjo.png")) // Template
 			val texto = context.args.joinToString(" ")
 
 			var graphics = template.graphics.enableFontAntiAliasing()

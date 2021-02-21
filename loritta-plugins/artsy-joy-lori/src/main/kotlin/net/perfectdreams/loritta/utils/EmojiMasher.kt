@@ -1,12 +1,12 @@
-package net.perfectdreams.loritta.emojimasher
+package net.perfectdreams.loritta.utils
 
 import com.github.salomonbrys.kotson.fromJson
 import com.mrpowergamerbr.loritta.utils.gson
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
-class EmojiMasher(val path: File) {
+class EmojiMasher(private val path: File) {
 	private val emojis by lazy {
 		gson.fromJson<List<StoredEmoji>>(File(path, "emojis.json").readText())
 	}
@@ -16,7 +16,7 @@ class EmojiMasher(val path: File) {
 	private val mouthFolder = File(path, "mouth")
 	private val detailFolder = File(path, "detail")
 
-	fun mashupEmojis(emoji1: String, emoji2: String, emoji3: String?, emoji4: String?): BufferedImage {
+	suspend fun mashupEmojis(emoji1: String, emoji2: String, emoji3: String?, emoji4: String?): BufferedImage {
 		// MISSING:
 		// https://emojipedia.org/rolling-on-the-floor-laughing/ (Fazer que rotacione)
 		// https://emojipedia.org/upside-down-face/ (Fazer que fique invertido)
@@ -99,7 +99,7 @@ class EmojiMasher(val path: File) {
 		return mashupEmojis(base, eyes, mouth, detail)
 	}
 
-	fun mashupEmojis(emoji1: EmojiParts, emoji2: EmojiParts, emoji3: EmojiParts, emoji4: EmojiParts): BufferedImage {
+	private fun mashupEmojis(emoji1: EmojiParts, emoji2: EmojiParts, emoji3: EmojiParts, emoji4: EmojiParts): BufferedImage {
 		var newEmoji = BufferedImage(240, 240, BufferedImage.TYPE_INT_ARGB)
 
 		var newEmojiGraphics = newEmoji.graphics
@@ -162,16 +162,16 @@ class EmojiMasher(val path: File) {
 		return newEmoji
 	}
 
-	fun loadEmojiParts(code: String): EmojiParts? {
+	private suspend fun loadEmojiParts(code: String): EmojiParts? {
 		val emoji = emojis.firstOrNull { it.unicode == code } ?: return null
 
 		return EmojiParts(
 				emoji.unicode,
 				emoji.base,
-				ImageIO.read(File(baseFolder, emoji.base)),
-				ImageIO.read(File(eyesFolder, emoji.eyes)),
-				ImageIO.read(File(mouthFolder, emoji.mouth)),
-				try { ImageIO.read(File(detailFolder, emoji.detail)) } catch (e: Exception) { null }
+				readImage(File(baseFolder, emoji.base)),
+				readImage(File(eyesFolder, emoji.eyes)),
+				readImage(File(mouthFolder, emoji.mouth)),
+				try { readImage(File(detailFolder, emoji.detail)) } catch (e: Exception) { null }
 		)
 	}
 

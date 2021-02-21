@@ -5,10 +5,12 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.LorittaImage
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.makeRoundedCorners
 import com.mrpowergamerbr.loritta.utils.toBufferedImage
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -18,29 +20,22 @@ class GangueCommand : AbstractCommand("gang", listOf("gangue"), CommandCategory.
 		val TEMPLATE_OVERLAY by lazy { ImageIO.read(File(Constants.ASSETS_FOLDER, "cocielo/overlay.png")) }
 	}
 
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["GANGUE_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.gang.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.gang.examples")
 
-	override fun getExamples(): List<String> {
-		return listOf("@Loritta @MrPowerGamerBR @Best Player @Giovanna_GGold @Nirewen")
-	}
-
-	override fun getUsage(): String {
-		return "<usuário 1> <usuário 2> <usuário 3> <usuário 4> <usuário 5>"
-	}
+	// TODO: Fix Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val contextImage = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 		val contextImage2 = context.getImageAt(1) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 		val contextImage3 = context.getImageAt(2) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 		val contextImage4 = context.getImageAt(3) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 		val contextImage5 = context.getImageAt(4) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
-		val template = ImageIO.read(File(Loritta.ASSETS + "cocielo/cocielo.png"))
+		val template = readImage(File(Loritta.ASSETS + "cocielo/cocielo.png"))
 
 		val scaled = contextImage.getScaledInstance(59, 59, BufferedImage.SCALE_SMOOTH)
 				.toBufferedImage()

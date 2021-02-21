@@ -4,38 +4,32 @@ import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.remove
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 class McConquistaCommand : AbstractCommand("mcconquista", listOf("mcprogresso", "mcadvancement", "mcachievement"), CommandCategory.MINECRAFT) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["MCCONQUISTA_Description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.mcadvancement.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.mcadvancement.examples")
 
-	override fun getExamples(): List<String> {
-		return listOf("@Loritta Ser muito fofa!")
-	}
-
-	override fun getUsage(): String {
-		return "texto"
-	}
+	// TODO: Fix Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.size > 1) {
 			val image = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 
 			val advancementText = context.rawArgs.remove(0).joinToString(" ")
 
-			val template = ImageIO.read(File(Loritta.ASSETS + "mcconquista.png")) // Template
+			val template = readImage(File(Loritta.ASSETS + "mcconquista.png")) // Template
 
 			val graphics = template.graphics
 
@@ -45,7 +39,7 @@ class McConquistaCommand : AbstractCommand("mcconquista", listOf("mcprogresso", 
 			graphics.font = minecraftia
 			graphics.color = Color(255, 255, 0)
 
-			graphics.drawString(context.legacyLocale["MCCONQUISTA_AdvancementMade"], 90, 41 + 14)
+			graphics.drawString(context.locale["commands.command.mcadvancement.advancementMade"], 90, 41 + 14)
 			graphics.color = Color(255, 255, 255)
 
 			var remadeText = ""

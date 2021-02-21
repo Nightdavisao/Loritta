@@ -6,36 +6,34 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.awt.Rectangle
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 class LavaCommand : AbstractCommand("lava", category = CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["LAVA_DESCRIPTION"]
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("@Loritta bots indecentes")
-	}
-
-	override fun getUsage(): String {
-		return "<imagem>"
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.lava.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.lava.examples")
+	override fun getUsage() = arguments {
+		argument(ArgumentType.IMAGE) {}
+		argument(ArgumentType.TEXT) {}
 	}
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			var contextImage = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
-			val template = ImageIO.read(File(Loritta.ASSETS + "lava.png")) // Template
+			val template = readImage(File(Loritta.ASSETS + "lava.png")) // Template
 
 			context.rawArgs = context.rawArgs.sliceArray(1..context.rawArgs.size - 1)
 

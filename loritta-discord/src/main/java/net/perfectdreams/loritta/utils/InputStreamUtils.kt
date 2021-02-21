@@ -4,11 +4,12 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.*
 
-private val MAX_BUFFER_SIZE = Integer.MAX_VALUE - 8
+private const val MAX_BUFFER_SIZE = Integer.MAX_VALUE - 8
 
 @Throws(IOException::class)
-fun InputStream.readAllBytes(limit: Int): ByteArray {
-	var buf = ByteArray(DEFAULT_BUFFER_SIZE)
+fun InputStream.readAllBytes(limit: Int, initialBufferSize: Int = DEFAULT_BUFFER_SIZE): ByteArray {
+	// If the data size is known before reading all bytes, we can avoid multiple array copies!
+	var buf = ByteArray(initialBufferSize)
 	var capacity = buf.size
 	var nread = 0
 	var n: Int

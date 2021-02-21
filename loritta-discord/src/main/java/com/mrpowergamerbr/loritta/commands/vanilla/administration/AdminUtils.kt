@@ -5,13 +5,19 @@ import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.network.Databases
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.stripCodeMarks
 import com.mrpowergamerbr.loritta.utils.substringIfNeeded
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
-import net.dv8tion.jda.api.entities.*
+import net.dv8tion.jda.api.entities.Guild
+import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.Message
+import net.dv8tion.jda.api.entities.MessageEmbed
+import net.dv8tion.jda.api.entities.User
+import net.perfectdreams.loritta.api.commands.ArgumentType
+import net.perfectdreams.loritta.api.commands.arguments
 import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.dao.servers.moduleconfigs.WarnAction
 import net.perfectdreams.loritta.tables.servers.moduleconfigs.ModerationPunishmentMessagesConfig
@@ -27,7 +33,20 @@ import java.awt.Color
 import java.time.Instant
 
 object AdminUtils {
-	private val LOCALE_PREFIX = "commands.moderation"
+	private val LOCALE_PREFIX = "commands.category.moderation"
+	val PUNISHMENT_EXAMPLES_KEY = LocaleKeyData("$LOCALE_PREFIX.punishmentExamples")
+	val ROLE_TOO_LOW_KEY = LocaleKeyData("$LOCALE_PREFIX.roleTooLow")
+	val ROLE_TOO_LOW_HOW_TO_FIX_KEY = LocaleKeyData("$LOCALE_PREFIX.roleTooLowHowToFix")
+	val PUNISHER_ROLE_TOO_LOW_HOW_TO_FIX_KEY = LocaleKeyData("$LOCALE_PREFIX.punisherRoleTooLowHowToFix")
+
+	val PUNISHMENT_USAGES = arguments {
+		argument(ArgumentType.USER) {
+			optional = false
+		}
+		argument(ArgumentType.TEXT) {
+			optional = true
+		}
+	}
 
 	/**
 	 * Retrieves the moderation settings for the [serverConfig]
@@ -94,7 +113,7 @@ object AdminUtils {
 		if (validUsers.isEmpty()) {
 			context.reply(
                     LorittaReply(
-                            context.locale["commands.userDoesNotExist", "`${context.rawArgs[0].stripCodeMarks()}`"],
+                            context.locale["commands.userDoesNotExist", context.rawArgs[0].stripCodeMarks()],
                             Emotes.LORI_HM
                     )
 			)
@@ -115,7 +134,7 @@ object AdminUtils {
 		if (user == null) {
 			context.reply(
                     LorittaReply(
-                            context.locale["commands.userDoesNotExist", "`${context.rawArgs[0].stripCodeMarks()}`"],
+                            context.locale["commands.userDoesNotExist", context.rawArgs[0].stripCodeMarks()],
                             Emotes.LORI_HM
                     )
 			)
@@ -127,11 +146,11 @@ object AdminUtils {
 	suspend fun checkForPermissions(context: CommandContext, member: Member): Boolean {
 		if (!context.guild.selfMember.canInteract(member)) {
 			val reply = buildString {
-				this.append(context.locale["${LOCALE_PREFIX}.roleTooLow"])
+				this.append(context.locale[ROLE_TOO_LOW_KEY])
 
 				if (context.handle.hasPermission(Permission.MANAGE_ROLES)) {
 					this.append(" ")
-					this.append(context.locale["${LOCALE_PREFIX}.roleTooLowHowToFix"])
+					this.append(context.locale[ROLE_TOO_LOW_HOW_TO_FIX_KEY])
 				}
 			}
 
@@ -146,11 +165,11 @@ object AdminUtils {
 
 		if (!context.handle.canInteract(member)) {
 			val reply = buildString {
-				this.append(context.locale["commands.moderation.punisherRoleTooLow"])
+				this.append(context.locale[ROLE_TOO_LOW_KEY])
 
 				if (context.handle.hasPermission(Permission.MANAGE_ROLES)) {
 					this.append(" ")
-					this.append(context.locale["commands.moderation.punisherRoleTooLowHowToFix"])
+					this.append(context.locale[PUNISHER_ROLE_TOO_LOW_HOW_TO_FIX_KEY])
 				}
 			}
 
@@ -166,7 +185,7 @@ object AdminUtils {
 	}
 
 	suspend fun sendConfirmationMessage(context: CommandContext, users: List<User>, hasSilent: Boolean, type: String): Message {
-		val str = context.locale["${LOCALE_PREFIX}.readyToPunish", context.locale["${LOCALE_PREFIX}.$type.punishName"], users.joinToString { it.asMention }, users.joinToString { it.asTag }, users.joinToString { it.id }]
+		val str = context.locale["${LOCALE_PREFIX}.readyToPunish", context.locale["commands.command.$type.punishName"], users.joinToString { it.asMention }, users.joinToString { it.asTag }, users.joinToString { it.id }]
 
 		val replies = mutableListOf(
                 LorittaReply(
@@ -226,7 +245,7 @@ object AdminUtils {
 
 	fun generateAuditLogMessage(locale: BaseLocale, punisher: User, reason: String) = locale["${LOCALE_PREFIX}.punishedLog", "${punisher.name}#${punisher.discriminator}", reason].substringIfNeeded(0 until 512)
 
-	fun createPunishmentEmbedBuilderSentViaDirectMessage(guild: Guild, locale: LegacyBaseLocale, punisher: User, punishmentAction: String, reason: String): EmbedBuilder {
+	fun createPunishmentEmbedBuilderSentViaDirectMessage(guild: Guild, locale: BaseLocale, punisher: User, punishmentAction: String, reason: String): EmbedBuilder {
 		val embed = EmbedBuilder()
 
 		embed.setTimestamp(Instant.now())
@@ -234,14 +253,14 @@ object AdminUtils {
 
 		embed.setThumbnail(guild.iconUrl)
 		embed.setAuthor(punisher.name + "#" + punisher.discriminator, null, punisher.avatarUrl)
-		embed.setTitle("\uD83D\uDEAB ${locale.toNewLocale()["$LOCALE_PREFIX.youGotPunished", punishmentAction.toLowerCase(), guild.name]}!")
-		embed.addField("\uD83D\uDC6E ${locale.toNewLocale()["$LOCALE_PREFIX.punishedBy"]}", punisher.name + "#" + punisher.discriminator, false)
-		embed.addField("\uD83D\uDCDD ${locale.toNewLocale()["$LOCALE_PREFIX.punishmentReason"]}", reason, false)
+		embed.setTitle("\uD83D\uDEAB ${locale["$LOCALE_PREFIX.youGotPunished", punishmentAction.toLowerCase(), guild.name]}!")
+		embed.addField("\uD83D\uDC6E ${locale["$LOCALE_PREFIX.punishedBy"]}", punisher.name + "#" + punisher.discriminator, false)
+		embed.addField("\uD83D\uDCDD ${locale["$LOCALE_PREFIX.punishmentReason"]}", reason, false)
 
 		return embed
 	}
 
-	fun createPunishmentMessageSentViaDirectMessage(guild: Guild, locale: LegacyBaseLocale, punisher: User, punishmentAction: String, reason: String): MessageEmbed {
+	fun createPunishmentMessageSentViaDirectMessage(guild: Guild, locale: BaseLocale, punisher: User, punishmentAction: String, reason: String): MessageEmbed {
 		return createPunishmentEmbedBuilderSentViaDirectMessage(guild, locale, punisher, punishmentAction, reason).build()
 	}
 

@@ -1,13 +1,15 @@
 package net.perfectdreams.loritta.platform.discord.commands
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.mrpowergamerbr.loritta.commands.CommandManager
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
 import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.extensions.await
+import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
 import com.mrpowergamerbr.loritta.utils.extensions.localized
+import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.ChannelType
@@ -17,9 +19,13 @@ import net.perfectdreams.loritta.api.commands.*
 import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.tables.ExecutedCommandsLog
+import net.perfectdreams.loritta.utils.CommandCooldownManager
 import net.perfectdreams.loritta.utils.CommandUtils
 import net.perfectdreams.loritta.utils.Emotes
+import net.perfectdreams.loritta.utils.UserPremiumPlans
+import net.perfectdreams.loritta.utils.metrics.Prometheus
 import org.jetbrains.exposed.sql.insert
+import java.sql.Connection
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 
@@ -43,7 +49,7 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 		commands.remove(command)
 	}
 
-	suspend fun dispatch(ev: LorittaMessageEvent, rawArguments: List<String>, serverConfig: ServerConfig, locale: BaseLocale, legacyLocale: LegacyBaseLocale, lorittaUser: LorittaUser): Boolean {
+	suspend fun dispatch(ev: LorittaMessageEvent, rawArguments: List<String>, serverConfig: ServerConfig, locale: BaseLocale, lorittaUser: LorittaUser): Boolean {
 		// We order by more spaces in the first label -> less spaces, to avoid other commands taking precedence over other commands
 		// I don't like how this works, we should create a command tree instead of doing this
 		for (command in commands.sortedByDescending { it.labels.first().count { it.isWhitespace() }}) {
@@ -51,14 +57,14 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 				command.commandCheckFilter?.invoke(ev, rawArguments, serverConfig, locale, lorittaUser) ?: true
 			else true
 
-			if (shouldBeProcessed && dispatch(command, rawArguments, ev, serverConfig, locale, legacyLocale, lorittaUser))
+			if (shouldBeProcessed && dispatch(command, rawArguments, ev, serverConfig, locale, lorittaUser))
 				return true
 		}
 
 		return false
 	}
 
-	suspend fun dispatch(command: Command<CommandContext>, rawArguments: List<String>, ev: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, legacyLocale: LegacyBaseLocale, lorittaUser: LorittaUser): Boolean {
+	suspend fun dispatch(command: Command<CommandContext>, rawArguments: List<String>, ev: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, lorittaUser: LorittaUser): Boolean {
 		val message = ev.message.contentDisplay
 		val user = ev.author
 
@@ -132,31 +138,37 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 									ev.guild
 							)
 							if (generatedMessage != null)
-							ev.textChannel.sendMessage(generatedMessage).queue()
+								ev.textChannel.sendMessage(generatedMessage)
+										.referenceIfPossible(ev.message, serverConfig, true)
+										.awaitCheckForReplyErrors()
 						}
 					}
 					return true // Ignorar canais bloqueados (return true = fast break, se está bloqueado o canal no primeiro comando que for executado, os outros obviamente também estarão)
 				}
 
-				// Cooldown
-				val diff = System.currentTimeMillis() - userCooldown.getOrDefault(ev.author.idLong, 0L)
-
-				if (1250 > diff && !loritta.config.isOwner(ev.author.id)) { // Tá bom, é alguém tentando floodar, vamos simplesmente ignorar
-					userCooldown.put(ev.author.idLong, System.currentTimeMillis()) // E vamos guardar o tempo atual
+				// Check if user is banned
+				if (LorittaUtilsKotlin.handleIfBanned(context, lorittaUser.profile))
 					return true
-				}
 
-				var cooldown = command.cooldown
-				val donatorPaid = com.mrpowergamerbr.loritta.utils.loritta.getActiveMoneyFromDonationsAsync(ev.author.idLong)
+				// Cooldown
+				var commandCooldown = command.cooldown
+				val donatorPaid = discordLoritta.getActiveMoneyFromDonationsAsync(ev.author.idLong)
 				val guildId = ev.guild?.idLong
 				val guildPaid = guildId?.let { serverConfig.getActiveDonationKeysValue() } ?: 0.0
 
-				if (donatorPaid >= 39.99 || guildPaid >= 59.99) {
-					cooldown /= 2
+				val plan = UserPremiumPlans.getPlanFromValue(donatorPaid)
+
+				if (plan.lessCooldown) {
+					commandCooldown /= 2
 				}
 
-				if (cooldown > diff && !loritta.config.isOwner(ev.author.id)) {
-					val fancy = DateUtils.formatDateDiff((cooldown - diff) + System.currentTimeMillis(), legacyLocale)
+				val (cooldownStatus, cooldownTriggeredAt, cooldown) = discordLoritta.commandCooldownManager.checkCooldown(
+						ev,
+						commandCooldown
+				)
+
+				if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE) {
+					val fancy = DateUtils.formatDateDiff(cooldown + cooldownTriggeredAt, locale)
 					context.reply(
 							LorittaReply(
 									locale["commands.pleaseWaitCooldown", fancy, "\uD83D\uDE45"],
@@ -164,9 +176,7 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 							)
 					)
 					return true
-				}
-
-				userCooldown[ev.author.idLong] = System.currentTimeMillis()
+				} else if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_MESSAGE_ALREADY_SENT) return true
 
 				if (command.hasCommandFeedback) {
 					// Sending typing status for every single command is costly (API limits!)
@@ -210,11 +220,11 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 
 					if (missingPermissions.isNotEmpty()) {
 						// oh no
-						val required = missingPermissions.joinToString(", ", transform = { "`" + legacyLocale["LORIPERMISSION_${it.name}"] + "`"})
-						var message = legacyLocale["LORIPERMISSION_MissingPermissions", required]
+							val required = missingPermissions.joinToString(", ", transform = { "`" + locale["commands.loriPermission${it.name}"] + "`"})
+						var message = locale["commands.loriMissingPermission", required]
 
 						if (ev.member.hasPermission(Permission.ADMINISTRATOR) || ev.member.hasPermission(Permission.MANAGE_SERVER)) {
-							message += " ${legacyLocale["LORIPERMISSION_MissingPermCanConfigure", loritta.instanceConfig.loritta.website.url]}"
+							message += " ${locale["commands.loriMissingPermissionCanConfigure", loritta.instanceConfig.loritta.website.url]}"
 						}
 						context.reply(
 								LorittaReply(
@@ -230,9 +240,6 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					context.explain()
 					return true
 				}
-
-				if (LorittaUtilsKotlin.handleIfBanned(context, lorittaUser.profile))
-					return true
 
 				if (command.onlyOwner && !loritta.config.isOwner(user.id)) {
 					context.reply(
@@ -262,7 +269,7 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 				if (context.isPrivateChannel && !command.canUseInPrivateChannel) {
 					context.reply(
 							LorittaReply(
-									message = legacyLocale["CANT_USE_IN_PRIVATE"],
+									message = locale["commands.cantUseInPrivate"],
 									prefix = Constants.ERROR
 							)
 					)
@@ -308,9 +315,15 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					}
 				} */
 
-				loritta.newSuspendedTransaction {
-					lorittaUser.profile.lastCommandSentAt = System.currentTimeMillis()
+				if (ev.guild != null && (LorittaUtils.isGuildOwnerBanned(lorittaUser._profile, ev.guild) || LorittaUtils.isGuildBanned(ev.guild)))
+					return true
 
+				// We don't care about locking the row just to update the sent at field
+				loritta.newSuspendedTransaction(transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED) {
+					lorittaUser.profile.lastCommandSentAt = System.currentTimeMillis()
+				}
+
+				loritta.newSuspendedTransaction {
 					ExecutedCommandsLog.insert {
 						it[userId] = lorittaUser.user.idLong
 						it[ExecutedCommandsLog.guildId] = if (ev.message.isFromGuild) ev.message.guild.idLong else null
@@ -340,10 +353,12 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 				}
 
 				val end = System.currentTimeMillis()
+				val commandLatency = end - start
+				Prometheus.COMMAND_LATENCY.labels(command.commandName).observe(commandLatency.toDouble())
 				if (ev.message.isFromType(ChannelType.TEXT)) {
-					logger.info("(${ev.message.guild.name} -> ${ev.message.channel.name}) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processado em ${end - start}ms")
+					CommandManager.logger.info("(${ev.message.guild.name} -> ${ev.message.channel.name}) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processed in ${commandLatency}ms")
 				} else {
-					logger.info("(Direct Message) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processado em ${end - start}ms")
+					CommandManager.logger.info("(Direct Message) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processed in ${commandLatency}ms")
 				}
 				return true
 			} catch (e: Exception) {
@@ -383,7 +398,9 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					reply += " `${e.message!!.escapeMentions()}`"
 
 				if (ev.isFromType(ChannelType.PRIVATE) || (ev.isFromType(ChannelType.TEXT) && ev.textChannel != null && ev.textChannel.canTalk()))
-					ev.channel.sendMessage(reply).queue()
+					ev.channel.sendMessage(reply)
+							.referenceIfPossible(ev.message, serverConfig, true)
+							.awaitCheckForReplyErrors()
 
 				return true
 			}

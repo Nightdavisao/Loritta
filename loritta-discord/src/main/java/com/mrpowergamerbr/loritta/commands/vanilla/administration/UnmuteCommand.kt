@@ -7,38 +7,24 @@ import com.mrpowergamerbr.loritta.tables.Mutes
 import com.mrpowergamerbr.loritta.utils.MessageUtils
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
 import com.mrpowergamerbr.loritta.utils.extensions.retrieveMemberOrNull
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
-import net.perfectdreams.loritta.api.commands.ArgumentType
-import net.perfectdreams.loritta.api.commands.CommandArguments
 import net.perfectdreams.loritta.api.commands.CommandCategory
-import net.perfectdreams.loritta.api.commands.arguments
 import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.PunishmentAction
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 
-class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar", "desilenciar"), CommandCategory.ADMIN) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["UNMUTE_DESCRIPTION"]
-	}
-
-	override fun getUsage(locale: LegacyBaseLocale): CommandArguments {
-		return arguments {
-			argument(ArgumentType.USER) {
-				optional = false
-			}
-		}
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("159985870458322944")
-	}
+class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar", "desilenciar"), CommandCategory.MODERATION) {
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.unmute.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.unmute.examples")
+	override fun getUsage() = AdminUtils.PUNISHMENT_USAGES
 
 	override fun getDiscordPermissions(): List<Permission> {
 		return listOf(Permission.KICK_MEMBERS)
@@ -52,7 +38,7 @@ class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar"
 		return listOf(Permission.MANAGE_ROLES, Permission.MANAGE_PERMISSIONS)
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val (users, rawReason) = AdminUtils.checkAndRetrieveAllValidUsersFromMessages(context) ?: return
 
@@ -76,7 +62,7 @@ class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar"
 
 				context.reply(
                         LorittaReply(
-                                locale.toNewLocale()["commands.moderation.unmute.successfullyUnmuted"],
+                                locale["commands.command.unmute.successfullyUnmuted"],
                                 "\uD83C\uDF89"
                         )
 				)
@@ -107,7 +93,7 @@ class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar"
 	}
 
 	companion object {
-		fun unmute(settings: AdminUtils.ModerationConfigSettings, guild: Guild, punisher: User, locale: LegacyBaseLocale, user: User, reason: String, isSilent: Boolean) {
+		fun unmute(settings: AdminUtils.ModerationConfigSettings, guild: Guild, punisher: User, locale: BaseLocale, user: User, reason: String, isSilent: Boolean) {
 			if (!isSilent) {
 				val punishLogMessage = AdminUtils.getPunishmentForMessage(
 						settings,
@@ -124,9 +110,9 @@ class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar"
 								listOf(user, guild),
 								guild,
 								mutableMapOf(
-										"duration" to locale.toNewLocale()["commands.moderation.mute.forever"]
+										"duration" to locale["commands.command.mute.forever"]
 								) + AdminUtils.getStaffCustomTokens(punisher)
-										+ AdminUtils.getPunishmentCustomTokens(locale.toNewLocale(), reason, "commands.moderation.unmute")
+										+ AdminUtils.getPunishmentCustomTokens(locale, reason, "commands.command.unmute")
 						)
 
 						message?.let {
@@ -153,7 +139,7 @@ class UnmuteCommand : AbstractCommand("unmute", listOf("desmutar", "desilenciar"
 			val member = guild.getMember(user)
 
 			if (member != null) {
-				val mutedRoles = MuteCommand.getMutedRole(guild, locale.toNewLocale())
+				val mutedRoles = MuteCommand.getMutedRole(guild, locale)
 				if (mutedRoles != null)
 					guild.removeRoleFromMember(member, mutedRoles).queue()
 			}

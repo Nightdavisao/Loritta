@@ -2,13 +2,16 @@ package net.perfectdreams.loritta.platform.discord.commands
 
 import com.github.kevinsawicki.http.HttpRequest
 import com.mrpowergamerbr.loritta.dao.ServerConfig
-import com.mrpowergamerbr.loritta.utils.Constants
-import com.mrpowergamerbr.loritta.utils.ImageUtils
-import com.mrpowergamerbr.loritta.utils.LorittaUser
-import com.mrpowergamerbr.loritta.utils.LorittaUtils
+import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.extensions.await
+import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
 import com.mrpowergamerbr.loritta.utils.extensions.localized
+import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import com.mrpowergamerbr.loritta.utils.locale.LocaleStringData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.Permission
@@ -16,6 +19,7 @@ import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.exceptions.PermissionException
 import net.perfectdreams.loritta.api.commands.Command
 import net.perfectdreams.loritta.api.commands.CommandContext
+import net.perfectdreams.loritta.api.messages.LorittaMessage
 import net.perfectdreams.loritta.api.utils.image.Image
 import net.perfectdreams.loritta.api.utils.image.JVMImage
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
@@ -46,42 +50,88 @@ class DiscordCommandContext(
 	val member = discordMessage.member
 
 	suspend fun sendMessage(message: String, embed: MessageEmbed): Message {
-		return sendMessage(MessageBuilder().setEmbed(embed).append(if (message.isEmpty()) " " else message).build())
+		return sendMessage(MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
+				.setEmbed(embed)
+				.append(if (message.isEmpty()) " " else message)
+				.build()
+		)
 	}
 
 	suspend fun sendMessage(embed: MessageEmbed): Message {
-		return sendMessage(MessageBuilder().append(getUserMention(true)).setEmbed(embed).build())
+		return sendMessage(MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
+				.append(getUserMention(true))
+				.setEmbed(embed)
+				.build()
+		)
 	}
 
 	suspend fun sendMessage(message: Message): Message {
 		if (isPrivateChannel || discordMessage.textChannel.canTalk()) {
-			val sentMessage = discordMessage.channel.sendMessage(message).await()
-			return sentMessage
+			return discordMessage.channel.sendMessage(message)
+					.referenceIfPossible(discordMessage, serverConfig, true)
+					.awaitCheckForReplyErrors()
 		} else {
 			throw RuntimeException("Sem permissão para enviar uma mensagem!")
 		}
 	}
 
-	suspend fun sendFile(file: File, fileName: String, content: String = this.getUserMention(true), embed: MessageEmbed? = null): DiscordMessage {
-		return DiscordMessage(discordMessage.channel.sendMessage(
-				MessageBuilder()
-						.append(content)
-						.setEmbed(embed)
-						.build()
+	override suspend fun sendImage(image: Image, fileName: String, content: String): net.perfectdreams.loritta.api.entities.Message {
+		return DiscordMessage(
+				discordMessage.channel.sendMessage(LorittaMessage(content).content)
+						.addFile(image.toByteArray(), fileName)
+						.referenceIfPossible(discordMessage, serverConfig, true)
+						.await()
 		)
-				.addFile(file, fileName)
-				.await()
+	}
+
+	override suspend fun sendFile(byteArray: ByteArray, fileName: String, content: String): net.perfectdreams.loritta.api.entities.Message {
+		return DiscordMessage(
+				discordMessage.channel.sendMessage(LorittaMessage(content).content)
+						.addFile(byteArray, fileName)
+						.referenceIfPossible(discordMessage, serverConfig, true)
+						.await()
+		)
+	}
+
+	suspend fun sendFile(file: File, fileName: String, content: String = this.getUserMention(true), embed: MessageEmbed? = null): DiscordMessage {
+		return DiscordMessage(
+				discordMessage.channel.sendMessage(
+						MessageBuilder()
+								.denyMentions(
+										Message.MentionType.EVERYONE,
+										Message.MentionType.HERE
+								)
+								.append(content)
+								.setEmbed(embed)
+								.build()
+				)
+						.addFile(file, fileName)
+						.referenceIfPossible(discordMessage, serverConfig, true)
+						.await()
 		)
 	}
 
 	suspend fun sendFile(inputStream: InputStream, fileName: String, content: String = this.getUserMention(true), embed: MessageEmbed? = null): DiscordMessage {
 		return DiscordMessage(discordMessage.channel.sendMessage(
 				MessageBuilder()
+						.denyMentions(
+								Message.MentionType.EVERYONE,
+								Message.MentionType.HERE
+						)
 						.append(content)
 						.setEmbed(embed)
 						.build()
 		)
 				.addFile(inputStream, fileName)
+				.referenceIfPossible(discordMessage, serverConfig, true)
 				.await()
 		)
 	}
@@ -99,8 +149,18 @@ class DiscordCommandContext(
 		if (this.args.size > argument) { // Primeiro iremos verificar se existe uma imagem no argumento especificado
 			val link = this.args[argument] // Ok, será que isto é uma URL?
 
-			if (LorittaUtils.isValidUrl(link))
+			if (LorittaUtils.isValidUrl(link) && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(link)) {
+				// Workaround for direct prnt.sc image links (Lightshot is trash but a lot of people use it)
+				if (link.contains("prnt.sc")) {
+					val document = withContext(Dispatchers.IO) { Jsoup.connect(link).get() }
+					val elements = document.getElementsByAttributeValue("property", "og:image")
+					if (!elements.isEmpty()) {
+						return elements.attr("content")
+					}
+				}
+
 				return link // Se é um link, vamos enviar para o usuário agora
+			}
 
 			// Vamos verificar por usuários no argumento especificado
 			val user = user(argument)
@@ -116,11 +176,11 @@ class DiscordCommandContext(
 			}
 
 			for (embed in discordMessage.embeds) {
-				if (embed.image != null)
+				if (embed.image != null && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(embed.image!!.url!!))
 					return embed.image!!.url
 			}
 			for (attachment in discordMessage.attachments) {
-				if (attachment.isImage)
+				if (attachment.isImage && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(attachment.url))
 					return attachment.url
 			}
 
@@ -137,7 +197,22 @@ class DiscordCommandContext(
 			}
 		}
 
-		// Ainda nada válido? Quer saber, desisto! Vamos pesquisar as mensagens antigas deste servidor & embeds então para encontrar attachments...
+		// Nothing found? Try retrieving the replied message content
+		if (!this.isPrivateChannel && this.guild.selfMember.hasPermission(this.discordMessage.textChannel, Permission.MESSAGE_HISTORY)) {
+			val referencedMessage = discordMessage.referencedMessage
+			if (referencedMessage != null) {
+				for (embed in referencedMessage.embeds) {
+					if (embed.image != null && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(embed.image!!.url!!))
+						return embed.image!!.url
+				}
+				for (attachment in referencedMessage.attachments) {
+					if (attachment.isImage && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(attachment.url))
+						return attachment.url
+				}
+			}
+		}
+
+		// Still nothing valid? You know what? I give up! Let's search old messages from this server & embeds to find attachments...
 		if (searchPreviousMessages > 0 && !this.isPrivateChannel && guild.selfMember.hasPermission(discordMessage.channel as TextChannel, Permission.MESSAGE_HISTORY)) {
 			val textChannel = discordMessage.channel as TextChannel
 			try {
@@ -145,11 +220,11 @@ class DiscordCommandContext(
 
 				attach@ for (msg in message) {
 					for (embed in msg.embeds) {
-						if (embed.image != null)
+						if (embed.image != null && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(embed.image!!.url!!))
 							return embed.image!!.url
 					}
 					for (attachment in msg.attachments) {
-						if (attachment.isImage)
+						if (attachment.isImage && com.mrpowergamerbr.loritta.utils.loritta.connectionManager.isTrusted(attachment.url))
 							return attachment.url
 					}
 				}
@@ -178,20 +253,91 @@ class DiscordCommandContext(
 		if (toBeDownloaded == null)
 			return null
 
-		// Vamos baixar a imagem!
+		// let's download the image!
 		try {
-			// Workaround para imagens do prnt.scr/prntscr.com (mesmo que o Lightshot seja um lixo)
-			if (toBeDownloaded.contains("prnt.sc") || toBeDownloaded.contains("prntscr.com")) {
-				val document = Jsoup.connect(toBeDownloaded).get()
-				val elements = document.getElementsByAttributeValue("property", "og:image")
-				if (!elements.isEmpty()) {
-					toBeDownloaded = elements.attr("content")
-				}
-			}
-			val image = LorittaUtils.downloadImage(toBeDownloaded ?: return null) ?: return null
+			val image = LorittaUtils.downloadImage(toBeDownloaded) ?: return null
 			return JVMImage(image)
 		} catch (e: Exception) {
 			return null
+		}
+	}
+
+	fun textChannel(argument: Int): TextChannel? {
+		val channelId = args.getOrNull(argument)
+				?.replace("<#", "")
+				?.replace(">", "")
+
+		return if (channelId?.isValidSnowflake()!!) {
+			guild.getTextChannelById(channelId)
+		} else {
+			null
+		} ?: if (guild.getTextChannelsByName(args[0], true).isNotEmpty()) {
+			guild.getTextChannelsByName(args[0], true).first()
+		} else {
+			null
+		} ?: if (guild.textChannels.filter { it.name == args[0] }.isNotEmpty()) {
+			guild.textChannels.filter { it.name == args[0] }.first()
+		} else {
+			null
+		}
+	}
+
+	fun voiceChannel(argument: Int): VoiceChannel? {
+		val channelId = args.getOrNull(argument)
+				?.replace("<#", "")
+				?.replace(">", "")
+
+		return if (channelId?.isValidSnowflake()!!) {
+			guild.getVoiceChannelById(channelId)
+		} else {
+			null
+		} ?: if (guild.getVoiceChannelsByName(args[0], true).isNotEmpty()) {
+			guild.getVoiceChannelsByName(args[0], true).first()
+		} else {
+			null
+		} ?: if (guild.voiceChannels.filter { it.name == args[0] }.isNotEmpty()) {
+			guild.voiceChannels.filter { it.name == args[0] }.first()
+		} else {
+			null
+		}
+	}
+
+	fun role(argument: Int): Role? {
+		val roleId = args.getOrNull(argument)
+				?.replace("<@&", "")
+				?.replace(">", "")
+
+		return if (roleId?.isValidSnowflake()!!) {
+			guild.getRoleById(roleId)
+		} else {
+			null
+		} ?: if (guild.getRolesByName(args[0], true).isNotEmpty()) {
+			guild.getRolesByName(args[0], true).first()
+		} else {
+			null
+		} ?: if (guild.roles.filter { it.name == args[0] }.isNotEmpty()) {
+			guild.roles.filter { it.name == args[0] }.first()
+		} else {
+			null
+		}
+	}
+
+	fun emote(argument: Int): Emote? {
+		val regexEmote = Regex("(<)|[a-z]|(_)|(:)|(>)")
+		val emoteId = args.getOrNull(argument)?.let { regexEmote.replace(it, "") }
+
+		return if (emoteId?.isValidSnowflake()!!) {
+			guild.getEmoteById(emoteId)
+		} else {
+			null
+		} ?: if (guild.getEmotesByName(args[0], true).isNotEmpty()) {
+			guild.getEmotesByName(args[0], true).first()
+		} else {
+			null
+		} ?: if (guild.emotes.filter { it.name == args[0] }.isNotEmpty()) {
+			guild.emotes.filter { it.name == args[0] }.first()
+		} else {
+			null
 		}
 	}
 
@@ -201,6 +347,10 @@ class DiscordCommandContext(
 	 * @param context the context of the command
 	 */
 	override suspend fun explain() {
+		val commandDescription = command.description.invoke(locale)
+		val commandLabel = command.labels.first()
+		val commandLabelWithPrefix = "${serverConfig.commandPrefix}$commandLabel"
+
 		val embed = EmbedBuilder()
 				.setColor(Constants.LORITTA_AQUA)
 				.setAuthor(locale["commands.explain.clickHereToSeeAllMyCommands"], "${loritta.instanceConfig.loritta.website.url}commands", discordMessage.jda.selfUser.effectiveAvatarUrl)
@@ -209,35 +359,93 @@ class DiscordCommandContext(
 				.setTimestamp(Instant.now())
 
 		val description = buildString {
-			this.append(command.description.invoke(locale))
+			// Builds the "How to Use" string
+			this.append(commandDescription)
 			this.append('\n')
 			this.append('\n')
-			this.append("${Emotes.LORI_SMILE} **${locale["commands.explain.howToUse"]}** ")
+			this.append("${Emotes.LORI_SMILE} **${locale["commands.explain.howToUse"]}**")
+			this.append(" `")
+			this.append(commandLabelWithPrefix)
 			this.append('`')
-			this.append(serverConfig.commandPrefix)
-			this.append(command.labels.first())
-			this.append('`')
-			this.append(' ')
-			for ((index, argument) in command.usage.arguments.withIndex()) {
-				// <argumento> - Argumento obrigatório
-				// [argumento] - Argumento opcional
+
+			// Only add the arguments if the list is not empty (to avoid adding a empty "` `")
+			if (command.usage.arguments.isNotEmpty()) {
 				this.append("**")
 				this.append('`')
-				argument.build(this, locale)
+				this.append(' ')
+				for ((index, argument) in command.usage.arguments.withIndex()) {
+					argument.build(this, locale)
+
+					if (index != command.usage.arguments.size - 1)
+						this.append(' ')
+				}
 				this.append('`')
 				this.append("**")
-				if (index != command.usage.arguments.size - 1)
-					this.append(' ')
+
+				// If we have arguments with explanations, let's show them!
+				val argumentsWithExplanations = command.usage.arguments.filter { it.explanation != null }
+
+				if (argumentsWithExplanations.isNotEmpty()) {
+					this.append('\n')
+					// Same thing again, but with a *twist*!
+					for ((index, argument) in argumentsWithExplanations.withIndex()) {
+						this.append("**")
+						this.append('`')
+						argument.build(this, locale)
+						this.append('`')
+						this.append("**")
+						this.append(' ')
+
+						when (val explanation = argument.explanation) {
+							is LocaleKeyData -> {
+								this.append(locale.get(explanation))
+							}
+							is LocaleStringData -> {
+								this.append(explanation.text)
+							}
+							else -> throw IllegalArgumentException("I don't know how to process a $argument!")
+						}
+
+						this.append('\n')
+					}
+				}
 			}
 		}
 
 		embed.setDescription(description)
-		val examples = command.examples?.invoke(locale)
 
-		if (examples != null) {
+		// Create example list
+		val examplesKey = command.examplesKey
+		val examples = ArrayList<String>()
+
+		if (examplesKey != null) {
+			val examplesAsString = locale.getList(examplesKey)
+
+			for (example in examplesAsString) {
+				val split = example.split("|-|")
+						.map { it.trim() }
+
+				if (split.size == 2) {
+					// If the command has a extended description
+					// "12 |-| Gira um dado de 12 lados"
+					// A extended description can also contain "nothing", but contains a extended description
+					// "|-| Gira um dado de 6 lados"
+					val (commandExample, explanation) = split
+
+					examples.add("\uD83D\uDD39 **$explanation**")
+					examples.add("`" + commandLabelWithPrefix + "`" + (if (commandExample.isEmpty()) "" else "**` $commandExample`**"))
+				} else {
+					val commandExample = split[0]
+
+					examples.add("`" + commandLabelWithPrefix + "`" + if (commandExample.isEmpty()) "" else "**` $commandExample`**")
+				}
+			}
+		}
+
+		if (examples.isNotEmpty()) {
 			embed.addField(
 					"\uD83D\uDCD6 ${locale["commands.explain.examples"]}",
-					examples.joinToString("\n", transform = { "`${serverConfig.commandPrefix}${executedCommandLabel}` **`${it}`**" }),
+					examples.joinToString("\n", transform = { it }),
 					false
 			)
 		}
@@ -282,9 +490,15 @@ class DiscordCommandContext(
 		}
 
 		val messageBuilder = MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
 				.append(getUserMention(true))
 				.setEmbed(embed.build())
 
-		discordMessage.channel.sendMessage(messageBuilder.build()).await()
+		discordMessage.channel.sendMessage(messageBuilder.build())
+				.referenceIfPossible(discordMessage, serverConfig, true)
+				.awaitCheckForReplyErrors()
 	}
 }

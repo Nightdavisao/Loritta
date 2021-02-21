@@ -1,34 +1,25 @@
 package com.mrpowergamerbr.loritta.commands.vanilla.images
 
-import com.google.common.collect.ImmutableMap
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.Command
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import java.awt.Color
-import java.util.*
 
 class InverterCommand : AbstractCommand("invert", listOf("inverter"), category = CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["INVERTER_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.invert.description")
+	override fun getExamplesKey() = Command.SINGLE_IMAGE_EXAMPLES_KEY
 
-	override fun getExamples(): List<String> {
-		return Arrays.asList("http://i.imgur.com/KbHXmKO.png", "@Loritta", "\uD83D\uDC4C")
-	}
-
-	override fun getDetailedUsage(): Map<String, String> {
-		return ImmutableMap.builder<String, String>()
-				.put("mensagem", "Usuário sortudo")
-				.build()
-	}
+	// TODO: Fix Detailed Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val image = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 
 		for (x in 0 until image.width) {

@@ -1,35 +1,26 @@
 package com.mrpowergamerbr.loritta.commands.vanilla.images
 
-import com.google.common.collect.ImmutableMap
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.Command
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import java.awt.geom.AffineTransform
 import java.awt.image.AffineTransformOp
-import java.util.*
 
 class OjjoCommand : AbstractCommand("ojjo", category = CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale.toNewLocale()["commands.images.ojjo.description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.ojjo.description")
+	override fun getExamplesKey() = Command.SINGLE_IMAGE_EXAMPLES_KEY
 
-	override fun getExamples(): List<String> {
-		return Arrays.asList("@Loritta")
-	}
-
-	override fun getDetailedUsage(): Map<String, String> {
-		return ImmutableMap.builder<String, String>()
-				.put("imagem", "imagem")
-				.build()
-	}
+	// TODO: Fix Detailed Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val image = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
 
 		val rightSide = image.getSubimage(image.width / 2, 0, image.width / 2, image.height)

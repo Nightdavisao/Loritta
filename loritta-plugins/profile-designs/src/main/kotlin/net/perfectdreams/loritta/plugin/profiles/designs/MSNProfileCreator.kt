@@ -8,19 +8,19 @@ import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.LorittaUtils
 import com.mrpowergamerbr.loritta.utils.drawText
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
 import net.dv8tion.jda.api.entities.Guild
-import net.dv8tion.jda.api.entities.Member
+import net.perfectdreams.loritta.profile.ProfileUtils
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.awt.image.BufferedImage
 import java.io.File
 import java.io.FileInputStream
-import javax.imageio.ImageIO
 
 class MSNProfileCreator : ProfileCreator("msn") {
-	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
-		val profileWrapper = ImageIO.read(File(Loritta.ASSETS, "profile/msn/profile_wrapper.png"))
+	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
+		val profileWrapper = readImage(File(Loritta.ASSETS, "profile/msn/profile_wrapper.png"))
 
 		val base = BufferedImage(800, 600, BufferedImage.TYPE_INT_ARGB) // Base
 		val graphics = base.graphics.enableFontAntiAliasing()
@@ -74,8 +74,8 @@ class MSNProfileCreator : ProfileCreator("msn") {
 		graphics.drawText(user.name, 269, 142)
 
 		ProfileUtils.getMarriageInfo(userProfile)?.let { (marriage, marriedWith) ->
-			val marriedWithText = "${locale.toNewLocale()["profile.marriedWith"]} ${marriedWith.name}#${marriedWith.discriminator}"
-			val gameIcon = ImageIO.read(File(Loritta.ASSETS, "profile/msn/game_icon.png"))
+			val marriedWithText = "${locale["profile.marriedWith"]} ${marriedWith.name}#${marriedWith.discriminator}"
+			val gameIcon = readImage(File(Loritta.ASSETS, "profile/msn/game_icon.png"))
 			graphics.drawImage(gameIcon, 0, 5, null)
 			graphics.font = msnFont24
 			graphics.color = Color(51, 51, 51)
@@ -94,7 +94,7 @@ class MSNProfileCreator : ProfileCreator("msn") {
 		ImageUtils.drawTextWrapSpaces("Não inclua informações como senhas ou número de cartões de crédito em uma mensagem instantânea", 297, 224, 768, 1000, graphics.fontMetrics, graphics)
 
 		ImageUtils.drawTextWrapSpaces("${user.name} diz", 267, 302, 768, 1000, graphics.fontMetrics, graphics)
-		ImageUtils.drawTextWrapSpaces(/* "Olá, meu nome é ${user.name}! Atualmente eu tenho ${userProfile.dreams} Sonhos, já recebi ${userProfile.receivedReputations.size} reputações, estou em #$position (${userProfile.xp} XP) no rank global e estou em #$localPosition (${xpLocal?.xp} XP) no rank do ${guild.name}!\n\n${userProfile.aboutMe}" */ aboutMe, 297, 326, 768, 1000, graphics.fontMetrics, graphics)
+		ImageUtils.drawTextWrapSpaces(/* "Olá, meu nome é ${user.name}! Atualmente eu tenho ${userProfile.dreams} Sonhos, já recebi ${userProfile.receivedReputations.size} reputações, estou em #$position (${userProfile.xp} XP) no rank global e estou em #${localPosition ?: "???"} (${xpLocal?.xp} XP) no rank do ${guild.name}!\n\n${userProfile.aboutMe}" */ aboutMe, 297, 326, 768, 1000, graphics.fontMetrics, graphics)
 
 		val shiftY = 291
 
@@ -102,7 +102,11 @@ class MSNProfileCreator : ProfileCreator("msn") {
 		val globalPosition = ProfileUtils.getGlobalExperiencePosition(userProfile)
 		graphics.drawText("Global", 4, 21 + shiftY, 244)
 		graphics.font = whitneySemiBold20
-		graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 4, 39  + shiftY, 244)
+
+		if (globalPosition != null)
+			graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 4, 39  + shiftY, 244)
+		else
+			graphics.drawText("${userProfile.xp} XP", 4, 39  + shiftY, 244)
 
 		if (guild != null) {
 			val localProfile = ProfileUtils.getLocalProfile(guild, user)
@@ -115,7 +119,12 @@ class MSNProfileCreator : ProfileCreator("msn") {
 			graphics.drawText(guild.name, 4, 61  + shiftY, 244)
 			graphics.font = whitneySemiBold20
 			if (xpLocal != null) {
-				graphics.drawText("#$localPosition / $xpLocal XP", 4, 78 + shiftY, 244)
+				if (localPosition != null) {
+					graphics.drawText("#$localPosition / $xpLocal XP", 4, 78 + shiftY, 244)
+				} else {
+					graphics.drawText("$xpLocal XP", 4, 78 + shiftY, 244)
+				}
+				graphics.drawText("#${localPosition ?: "???"} / $xpLocal XP", 4, 78 + shiftY, 244)
 			} else {
 				graphics.drawText("???", 4, 78 + shiftY, 244)
 			}
@@ -134,7 +143,7 @@ class MSNProfileCreator : ProfileCreator("msn") {
 
 			if (index % 14 == 13) {
 				// Aumentar chat box
-				val extendedChatBox = ImageIO.read(File(Loritta.ASSETS, "profile/msn/extended_chat_box.png"))
+				val extendedChatBox = readImage(File(Loritta.ASSETS, "profile/msn/extended_chat_box.png"))
 				graphics.drawImage(extendedChatBox, 266, y - 38, null)
 				x = 272
 				y -= 32

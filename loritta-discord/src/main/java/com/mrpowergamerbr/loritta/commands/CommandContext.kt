@@ -5,13 +5,11 @@ import club.minnced.discord.webhook.send.WebhookMessage
 import com.github.kevinsawicki.http.HttpRequest
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
-import com.mrpowergamerbr.loritta.utils.GuildLorittaUser
-import com.mrpowergamerbr.loritta.utils.ImageUtils
-import com.mrpowergamerbr.loritta.utils.LorittaUser
-import com.mrpowergamerbr.loritta.utils.LorittaUtils
+import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.extensions.await
+import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
+import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.Permission
@@ -34,7 +32,7 @@ import javax.imageio.ImageIO
 /**
  * Contexto do comando executado
  */
-class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val locale: BaseLocale, val legacyLocale: LegacyBaseLocale, var event: LorittaMessageEvent, var cmd: AbstractCommand, var args: Array<String>, var rawArgs: Array<String>, var strippedArgs: Array<String>) {
+class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val locale: BaseLocale, var event: LorittaMessageEvent, var cmd: AbstractCommand, var args: Array<String>, var rawArgs: Array<String>, var strippedArgs: Array<String>) {
 	var metadata = HashMap<String, Any>()
 
 	val isPrivateChannel: Boolean
@@ -76,20 +74,20 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 		return lorittaUser.user.asMention + (if (addSpace) " " else "")
 	}
 
-	suspend fun reply(message: String, prefix: String? = null, forceMention: Boolean = false): Message {
+	suspend fun reply(message: String, prefix: String? = null, addInlineReply: Boolean = true, forceMention: Boolean = false): Message {
 		var send = ""
 		if (prefix != null) {
 			send = "$prefix **|** "
 		}
 		send = send + (if (forceMention) userHandle.asMention + " " else getAsMention(true)) + message
-		return sendMessage(send)
+		return sendMessage(send, addInlineReply = addInlineReply)
 	}
 
-	suspend fun reply(vararg loriReplies: LorittaReply): Message {
-		return reply(false, *loriReplies)
+	suspend fun reply(vararg loriReplies: LorittaReply, addInlineReply: Boolean = true): Message {
+		return reply(false, *loriReplies, addInlineReply = addInlineReply)
 	}
 
-	suspend fun reply(mentionUserBeforeReplies: Boolean, vararg loriReplies: LorittaReply): Message {
+	suspend fun reply(mentionUserBeforeReplies: Boolean, vararg loriReplies: LorittaReply, addInlineReply: Boolean = true): Message {
 		val message = StringBuilder()
 		if (mentionUserBeforeReplies) {
 			message.append(LorittaReply().build(this))
@@ -99,7 +97,7 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 			message.append(loriReply.build(this))
 			message.append("\n")
 		}
-		return sendMessage(message.toString())
+		return sendMessage(message.toString(), addInlineReply = addInlineReply)
 	}
 
 	suspend fun reply(image: BufferedImage, fileName: String, vararg loriReplies: LorittaReply): Message {
@@ -110,28 +108,55 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 		return sendFile(image, fileName, message.toString())
 	}
 
-	suspend fun sendMessage(message: String): Message {
-		return sendMessage(MessageBuilder().append(if (message.isEmpty()) " " else message).build())
+	suspend fun sendMessage(message: String, addInlineReply: Boolean = true): Message {
+		return sendMessage(MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
+				.append(if (message.isEmpty()) " " else message)
+				.build(),
+				addInlineReply = addInlineReply
+		)
 	}
 
-	suspend fun sendMessage(message: String, embed: MessageEmbed): Message {
-		return sendMessage(MessageBuilder().setEmbed(embed).append(if (message.isEmpty()) " " else message).build())
+	suspend fun sendMessage(message: String, embed: MessageEmbed, addInlineReply: Boolean = true): Message {
+		return sendMessage(MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
+				.setEmbed(embed)
+				.append(if (message.isEmpty()) " " else message)
+				.build(),
+				addInlineReply = addInlineReply
+		)
 	}
 
-	suspend fun sendMessage(embed: MessageEmbed): Message {
-		return sendMessage(MessageBuilder().append(getAsMention(true)).setEmbed(embed).build())
+	suspend fun sendMessage(embed: MessageEmbed, addInlineReply: Boolean = true): Message {
+		return sendMessage(
+				MessageBuilder()
+						.denyMentions(
+								Message.MentionType.EVERYONE,
+								Message.MentionType.HERE
+						)
+						.append(getAsMention(true))
+						.setEmbed(embed)
+						.build(),
+				addInlineReply = addInlineReply)
 	}
 
-	suspend fun sendMessage(message: Message): Message {
+	suspend fun sendMessage(message: Message, addInlineReply: Boolean = true): Message {
 		if (isPrivateChannel || event.textChannel!!.canTalk()) {
-			val sentMessage = event.channel.sendMessage(message).await()
-			return sentMessage
+			return event.channel.sendMessage(message)
+					.referenceIfPossible(event.message, config, addInlineReply)
+					.awaitCheckForReplyErrors()
 		} else {
 			throw RuntimeException("Sem permissão para enviar uma mensagem!")
 		}
 	}
 
-	suspend fun sendMessage(webhook: WebhookClient?, message: WebhookMessage) {
+	suspend fun sendMessage(webhook: WebhookClient?, message: WebhookMessage, addInlineReply: Boolean = true) {
 		if (!isPrivateChannel && webhook != null) { // Se a webhook é diferente de null, então use a nossa webhook disponível!
 			webhook.send(message)
 		} else { // Se não, iremos usar embeds mesmo...
@@ -140,13 +165,17 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 			builder.setDescription(message.content)
 			builder.setFooter("Não consigo usar as permissões de webhook aqui... então estou usando o modo de pobre!", null)
 
-			sendMessage(builder.build())
+			sendMessage(builder.build(), addInlineReply = addInlineReply)
 		}
 	}
 
 	suspend fun sendFile(file: File, name: String, message: String, embed: MessageEmbed? = null): Message {
 		// Corrigir erro ao construir uma mensagem vazia
 		val builder = MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
 		builder.append(if (message.isEmpty()) " " else message)
 		if (embed != null)
 			builder.setEmbed(embed)
@@ -195,6 +224,10 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 	suspend fun sendFile(inputStream: InputStream, name: String, message: String, embed: MessageEmbed? = null): Message {
 		// Corrigir erro ao construir uma mensagem vazia
 		val builder = MessageBuilder()
+				.denyMentions(
+						Message.MentionType.EVERYONE,
+						Message.MentionType.HERE
+				)
 		builder.append(if (message.isEmpty()) " " else message)
 		if (embed != null)
 			builder.setEmbed(embed)
@@ -203,7 +236,10 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 
 	suspend fun sendFile(inputStream: InputStream, name: String, message: Message): Message {
 		if (isPrivateChannel || event.textChannel!!.canTalk()) {
-			val sentMessage = event.channel.sendMessage(message).addFile(inputStream, name).await()
+			val sentMessage = event.channel.sendMessage(message)
+					.addFile(inputStream, name)
+					.referenceIfPossible(event.message, config, true)
+					.await()
 			return sentMessage
 		} else {
 			throw RuntimeException("Sem permissão para enviar uma mensagem!")
@@ -238,7 +274,7 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 		if (this.rawArgs.size > argument) { // Primeiro iremos verificar se existe uma imagem no argumento especificado
 			val link = this.rawArgs[argument] // Ok, será que isto é uma URL?
 
-			if (LorittaUtils.isValidUrl(link))
+			if (LorittaUtils.isValidUrl(link) && loritta.connectionManager.isTrusted(link))
 				return link // Se é um link, vamos enviar para o usuário agora
 
 			// Vamos verificar por usuários no argumento especificado
@@ -254,6 +290,15 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 				}
 			}
 
+			for (embed in this.message.embeds) {
+				if (embed.image != null && loritta.connectionManager.isTrusted(embed.image!!.url!!))
+					return embed.image!!.url
+			}
+			for (attachment in this.message.attachments) {
+				if (attachment.isImage && loritta.connectionManager.isTrusted(attachment.url))
+					return attachment.url
+			}
+
 			// Se não é nada... então talvez seja um emoji padrão do Discordão!
 			// Na verdade é um emoji padrão...
 			try {
@@ -267,6 +312,21 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 			}
 		}
 
+		// Nothing found? Try retrieving the replied message content
+		if (!this.isPrivateChannel && this.guild.selfMember.hasPermission(this.event.textChannel!!, Permission.MESSAGE_HISTORY)) {
+			val referencedMessage = message.referencedMessage
+			if (referencedMessage != null) {
+				for (embed in referencedMessage.embeds) {
+					if (embed.image != null && loritta.connectionManager.isTrusted(embed.image!!.url!!))
+						return embed.image!!.url
+				}
+				for (attachment in referencedMessage.attachments) {
+					if (attachment.isImage && loritta.connectionManager.isTrusted(attachment.url))
+						return attachment.url
+				}
+			}
+		}
+
 		// Ainda nada válido? Quer saber, desisto! Vamos pesquisar as mensagens antigas deste servidor & embeds então para encontrar attachments...
 		if (search > 0 && !this.isPrivateChannel && this.guild.selfMember.hasPermission(this.event.textChannel!!, Permission.MESSAGE_HISTORY)) {
 			try {
@@ -274,12 +334,12 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 
 				attach@ for (msg in message) {
 					for (embed in msg.embeds) {
-						if (embed.image != null) {
+						if (embed.image != null && loritta.connectionManager.isTrusted(embed.image!!.url!!)) {
 							return embed.image!!.url
 						}
 					}
 					for (attachment in msg.attachments) {
-						if (attachment.isImage) {
+						if (attachment.isImage && loritta.connectionManager.isTrusted(attachment.url)) {
 							return attachment.url
 						}
 					}
@@ -306,7 +366,11 @@ class CommandContext(val config: ServerConfig, var lorittaUser: LorittaUser, val
 
 		if (toBeDownloaded == null) {
 			if (rawArgs.isNotEmpty() && createTextAsImageIfNotFound) {
-				return ImageUtils.createTextAsImage(256, 256, rawArgs.joinToString(" "))
+				val textForTheImage = rawArgs.drop(argument)
+						.joinToString(" ")
+
+				if (textForTheImage.isNotBlank())
+					return ImageUtils.createTextAsImage(256, 256, rawArgs.drop(argument).joinToString(" "))
 			}
 
 			if (search != 0) {

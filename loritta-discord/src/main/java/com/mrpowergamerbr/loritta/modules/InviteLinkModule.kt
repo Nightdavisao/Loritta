@@ -4,10 +4,18 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.mrpowergamerbr.loritta.dao.Profile
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
-import com.mrpowergamerbr.loritta.utils.*
+import com.mrpowergamerbr.loritta.utils.Constants
+import com.mrpowergamerbr.loritta.utils.LorittaPermission
+import com.mrpowergamerbr.loritta.utils.LorittaUser
+import com.mrpowergamerbr.loritta.utils.MessageUtils
+import com.mrpowergamerbr.loritta.utils.MiscUtils
 import com.mrpowergamerbr.loritta.utils.extensions.await
 import com.mrpowergamerbr.loritta.utils.extensions.sendMessageAsync
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.loritta
+import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
+import com.mrpowergamerbr.loritta.utils.removeAllFunctions
+import com.mrpowergamerbr.loritta.utils.stripCodeMarks
 import net.dv8tion.jda.api.Permission
 import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.dao.servers.moduleconfigs.InviteBlockerConfig
@@ -24,7 +32,7 @@ class InviteLinkModule : MessageReceivedModule {
 		val cachedInviteLinks = Caffeine.newBuilder().expireAfterAccess(30L, TimeUnit.MINUTES).build<Long, List<String>>().asMap()
 	}
 
-	override suspend fun matches(event: LorittaMessageEvent, lorittaUser: LorittaUser, lorittaProfile: Profile?, serverConfig: ServerConfig, locale: LegacyBaseLocale): Boolean {
+	override suspend fun matches(event: LorittaMessageEvent, lorittaUser: LorittaUser, lorittaProfile: Profile?, serverConfig: ServerConfig, locale: BaseLocale): Boolean {
 		val inviteBlockerConfig = serverConfig.getCachedOrRetreiveFromDatabase<InviteBlockerConfig?>(ServerConfig::inviteBlockerConfig)
 				?: return false
 
@@ -40,7 +48,7 @@ class InviteLinkModule : MessageReceivedModule {
 		return true
 	}
 
-	override suspend fun handle(event: LorittaMessageEvent, lorittaUser: LorittaUser, lorittaProfile: Profile?, serverConfig: ServerConfig, locale: LegacyBaseLocale): Boolean {
+	override suspend fun handle(event: LorittaMessageEvent, lorittaUser: LorittaUser, lorittaProfile: Profile?, serverConfig: ServerConfig, locale: BaseLocale): Boolean {
 		val message = event.message
 		val guild = message.guild
 		val inviteBlockerConfig = serverConfig.getCachedOrRetreiveFromDatabase<InviteBlockerConfig?>(ServerConfig::inviteBlockerConfig)
@@ -51,7 +59,13 @@ class InviteLinkModule : MessageReceivedModule {
 				// https://cdn.discordapp.com/attachments/513405772911345664/760887806191992893/invite-bug.png
 				.stripCodeMarks()
 				.replace("\u200B", "")
-				.replace("\\", "")
+				// https://discord.gg\loritta is actually detected as https://discord.gg/loritta on Discord
+				// So we are going to flip all \ to /
+				.replace("\\", "/")
+				// https://discord.gg//loritta is actually detected as https://discord.gg/loritta on Discord
+				// (yes, two issues, wow)
+				// So we are going to replace all /+ to /, so https://discord.gg//loritta becomes https://discord.gg/loritta
+				.replace(Regex("/+"), "/")
 
 		val validMatchers = mutableListOf<Matcher>()
 		val contentMatcher = getMatcherIfHasInviteLink(content)
@@ -146,11 +160,11 @@ class InviteLinkModule : MessageReceivedModule {
 							val enableBypassMessage = message.textChannel.sendMessageAsync(
 									listOf(
 											LorittaReply(
-													locale.toNewLocale()["modules.inviteBlocker.activateInviteBlockerBypass", topRole.asMention, Emotes.LORI_PAT],
+													locale["modules.inviteBlocker.activateInviteBlockerBypass", topRole.asMention, Emotes.LORI_PAT],
 													Emotes.LORI_SMILE
 											),
 											LorittaReply(
-													locale.toNewLocale()["modules.inviteBlocker.howToReEnableLater", "<${loritta.instanceConfig.loritta.website.url}guild/${event.member.guild.idLong}/configure/permissions>"],
+													locale["modules.inviteBlocker.howToReEnableLater", "<${loritta.instanceConfig.loritta.website.url}guild/${event.member.guild.idLong}/configure/permissions>"],
 													Emotes.LORI_HM
 											)
 									).joinToString("\n") { it.build(JDAUser(event.member.user)) }
@@ -168,9 +182,12 @@ class InviteLinkModule : MessageReceivedModule {
 										}
 									}
 
+									// Because Loritta caches role permissions, we need to invalidate the current config to avoid cache inconsistencies.
+									loritta.cachedServerConfigs.invalidate(serverConfig.id.value)
+
 									message.textChannel.sendMessage(
 											LorittaReply(
-													locale.toNewLocale()["modules.inviteBlocker.bypassEnabled", topRole.asMention],
+													locale["modules.inviteBlocker.bypassEnabled", topRole.asMention],
 													Emotes.LORI_HAPPY
 											).build(JDAUser(event.member.user))
 									).queue()

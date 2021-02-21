@@ -1,17 +1,13 @@
 package net.perfectdreams.loritta.plugin.rosbife.commands
 
 import net.perfectdreams.loritta.plugin.rosbife.RosbifePlugin
-import net.perfectdreams.loritta.plugin.rosbife.commands.base.BasicSkewedImageCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.base.GabrielaImageServerCommandBase
 
-class GessyAtaCommand(m: RosbifePlugin) : BasicSkewedImageCommand(
+class GessyAtaCommand(m: RosbifePlugin) : GabrielaImageServerCommandBase(
 		m.loritta,
 		listOf("gessyata"),
-		"commands.images.gessyata.description",
-		"gessyata.png",
-		Corners(
-				130F, 35F,
-				410F, 92F,
-				387F, 277F,
-				111F, 210F
-		)
+		1,
+		"commands.command.gessyata.description",
+		"/api/v1/images/gessy-ata",
+		"gessy_ata.png",
 )

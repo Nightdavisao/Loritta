@@ -9,8 +9,10 @@ import com.mrpowergamerbr.loritta.website.WebsiteAPIException
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.tables.*
 import net.perfectdreams.loritta.utils.PaymentUtils
@@ -35,7 +37,7 @@ class PostBuyDailyShopItemRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLog
 
 	override suspend fun onAuthenticatedRequest(call: ApplicationCall, discordAuth: TemmieDiscordAuth, userIdentification: LorittaJsonWebSession.UserIdentification) {
 		val profile = com.mrpowergamerbr.loritta.utils.loritta.getOrCreateLorittaProfile(userIdentification.id)
-		val payload = JsonParser.parseString(call.receiveText()).obj
+		val payload = withContext(Dispatchers.IO) { JsonParser.parseString(call.receiveText()).obj }
 
 		val type = call.parameters["type"]!!
 		val internalName = call.parameters["internalName"]!!
@@ -92,9 +94,9 @@ class PostBuyDailyShopItemRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLog
 					)
 
 					BackgroundPayments.insert {
-						it[BackgroundPayments.userId] = profile.userId
+						it[userId] = profile.userId
 						it[BackgroundPayments.background] = background[Backgrounds.id]
-						it[BackgroundPayments.boughtAt] = System.currentTimeMillis()
+						it[boughtAt] = System.currentTimeMillis()
 						it[BackgroundPayments.cost] = cost.toLong()
 					}
 
@@ -112,7 +114,7 @@ class PostBuyDailyShopItemRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLog
 						PaymentUtils.addToTransactionLogNested(
 								creatorReceived,
 								SonhosPaymentReason.BACKGROUND,
-								receivedBy = creatorReceived
+								receivedBy = creator.id.value
 						)
 					}
 				} else if (type == "profile-design") {
@@ -157,14 +159,14 @@ class PostBuyDailyShopItemRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLog
 					profile.takeSonhosNested(cost.toLong())
 					PaymentUtils.addToTransactionLogNested(
 							cost.toLong(),
-							SonhosPaymentReason.BACKGROUND,
+							SonhosPaymentReason.PROFILE,
 							givenBy = profile.id.value
 					)
 
 					ProfileDesignsPayments.insert {
-						it[ProfileDesignsPayments.userId] = profile.userId
+						it[userId] = profile.userId
 						it[ProfileDesignsPayments.profile] = background[ProfileDesigns.id]
-						it[ProfileDesignsPayments.boughtAt] = System.currentTimeMillis()
+						it[boughtAt] = System.currentTimeMillis()
 						it[ProfileDesignsPayments.cost] = cost.toLong()
 					}
 
@@ -182,7 +184,7 @@ class PostBuyDailyShopItemRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLog
 						PaymentUtils.addToTransactionLogNested(
 								creatorReceived,
 								SonhosPaymentReason.PROFILE,
-								receivedBy = creatorReceived
+								receivedBy = creator.id.value
 						)
 					}
 				}

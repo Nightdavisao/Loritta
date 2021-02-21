@@ -28,10 +28,13 @@ class LoriToolsCommand(loritta: LorittaDiscord) : DiscordAbstractCommandBase(lor
 					PurgeInactiveUsersExecutor,
 					PurgeInactiveGuildUsersExecutor,
 					SetSelfBackgroundExecutor,
+					SetSelfProfileDesignExecutor,
 					GenerateDailyShopExecutor,
 					PriceCorrectionExecutor,
 					LoriBanIpExecutor,
-					LoriUnbanIpExecutor
+					LoriUnbanIpExecutor,
+					DeleteAccountDataExecutor,
+					ChargebackRunExecutor
 			) + validPlugins.flatMap { it.loriToolsExecutors }
 
 			allExecutors.forEach {

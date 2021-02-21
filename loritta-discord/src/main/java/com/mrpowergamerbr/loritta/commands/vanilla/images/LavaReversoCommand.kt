@@ -6,8 +6,12 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.enableFontAntiAliasing
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.awt.Rectangle
@@ -15,29 +19,24 @@ import java.awt.geom.AffineTransform
 import java.awt.image.AffineTransformOp
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 class LavaReversoCommand : AbstractCommand("lavareverse", listOf("lavareverso", "reverselava"), CommandCategory.IMAGES) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["LAVAREVERSO_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.reverselava.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.reverselava.examples")
 
-	override fun getExamples(): List<String> {
-		return listOf("@Loritta servidores brasileiros")
-	}
-
-	override fun getUsage(): String {
-		return "<imagem>"
+	override fun getUsage() = arguments {
+		argument(ArgumentType.IMAGE) {}
+		argument(ArgumentType.TEXT) {}
 	}
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val contextImage = context.getImageAt(0) ?: run { Constants.INVALID_IMAGE_REPLY.invoke(context); return; }
-			val template = ImageIO.read(File(Loritta.ASSETS + "lavareverso.png")) // Template
+			val template = readImage(File(Loritta.ASSETS + "lavareverso.png")) // Template
 
 			context.rawArgs = context.rawArgs.sliceArray(1..context.rawArgs.size - 1)
 

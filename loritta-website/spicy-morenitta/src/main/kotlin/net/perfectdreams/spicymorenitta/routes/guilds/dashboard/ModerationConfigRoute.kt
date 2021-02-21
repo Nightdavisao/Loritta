@@ -7,7 +7,16 @@ import jq
 import kotlinx.browser.document
 import kotlinx.html.dom.append
 import kotlinx.html.id
-import kotlinx.html.js.*
+import kotlinx.html.js.button
+import kotlinx.html.js.div
+import kotlinx.html.js.hr
+import kotlinx.html.js.i
+import kotlinx.html.js.onClickFunction
+import kotlinx.html.js.onInputFunction
+import kotlinx.html.js.option
+import kotlinx.html.js.select
+import kotlinx.html.js.span
+import kotlinx.html.js.textArea
 import kotlinx.html.p
 import kotlinx.serialization.Serializable
 import legacyLocale
@@ -23,7 +32,11 @@ import net.perfectdreams.spicymorenitta.utils.locale.buildAsHtml
 import net.perfectdreams.spicymorenitta.utils.onClick
 import net.perfectdreams.spicymorenitta.utils.select
 import net.perfectdreams.spicymorenitta.views.dashboard.ServerConfig
-import org.w3c.dom.*
+import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLDivElement
+import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLSelectElement
+import org.w3c.dom.HTMLTextAreaElement
 import kotlin.js.Json
 import kotlin.js.json
 
@@ -64,7 +77,6 @@ class ModerationConfigRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender(
 			LoriDashboard.configureTextArea(
 					jq("#punishmentLogMessage"),
 					true,
-					null,
 					true,
 					jq("#punishmentLogChannelId"),
 					true,
@@ -96,7 +108,7 @@ class ModerationConfigRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender(
 					for (entry in ServerConfig.PunishmentAction.values()) {
 						option {
 							value = entry.name
-							+locale["commands.moderation.${entry.name.toLowerCase()}.punishAction"]
+							+locale["commands.command.${entry.name.toLowerCase()}.punishAction"]
 						}
 					}
 				}
@@ -142,7 +154,7 @@ class ModerationConfigRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender(
 					locale.buildAsHtml(locale["modules.moderation.specificMessagesForPunishment.messageThatWillBeShown"], { num ->
 						if (num == 0)
 							span {
-								+locale["commands.moderation.${action.name.toLowerCase()}.punishAction"]
+								+locale["commands.command.${action.name.toLowerCase()}.punishAction"]
 							}
 					}) { str ->
 						+ str
@@ -177,7 +189,6 @@ class ModerationConfigRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender(
 		LoriDashboard.configureTextArea(
 				jq("#specific-$action-message"),
 				true,
-				null,
 				false,
 				null,
 				true,

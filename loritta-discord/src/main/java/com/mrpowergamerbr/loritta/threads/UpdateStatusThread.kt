@@ -52,6 +52,8 @@ class UpdateStatusThread : Thread("Update Status Thread") {
 			currentIndex = skipToIndex
 			skipToIndex = -1
 		}
+		// Used to display the current Loritta cluster in the status
+		val currentCluster = loritta.lorittaCluster
 
 		val calendar = Calendar.getInstance()
 		currentDay = calendar.get(Calendar.DAY_OF_WEEK)
@@ -101,14 +103,16 @@ class UpdateStatusThread : Thread("Update Status Thread") {
 
 					val artist = runBlocking { lorittaShards.retrieveUserInfoById(artistId.toLong()) }
 
-					val displayName = fancyName
-							?: if (artist != null) {
-								artist.name + "#" + artist.discriminator
-							} else {
-								"¯\\_(ツ)_/¯"
-							}
+					val displayName = fancyName ?: (artist?.name ?: "¯\\_(ツ)_/¯")
 
-					loritta.lorittaShards.shardManager.setActivity(Activity.of(Activity.ActivityType.WATCHING, "\uD83D\uDCF7 Fan Art by $displayName \uD83C\uDFA8 — \uD83D\uDC81 @Loritta fanarts", "https://www.twitch.tv/mrpowergamerbr"))
+					// We use ".setActivityProvider" to show the shard in the status
+					loritta.lorittaShards.shardManager.setActivityProvider {
+						Activity.of(
+								Activity.ActivityType.WATCHING,
+								"\uD83D\uDCF7 Fan Art by $displayName \uD83C\uDFA8 | Cluster ${currentCluster.id} [$it]",
+								"https://www.twitch.tv/mrpowergamerbr"
+						)
+					}
 					lastUpdate = System.currentTimeMillis()
 				}
 			}
@@ -153,21 +157,20 @@ class UpdateStatusThread : Thread("Update Status Thread") {
 					str = "\uD83D\uDEAB Inatividade Agendada: ${instant.hour.toString().padStart(2, '0')}:${instant.minute.toString().padStart(2, '0')}"
 				}
 
-				loritta.lorittaShards.shardManager.setActivity(Activity.of(Activity.ActivityType.valueOf(game.type), str, "https://www.twitch.tv/mrpowergamerbr"))
+				// We use ".setActivityProvider" to show the shard in the status
+				loritta.lorittaShards.shardManager.setActivityProvider {
+					Activity.of(
+							Activity.ActivityType.valueOf(game.type),
+							"$str | Cluster ${currentCluster.id} [$it]",
+							"https://www.twitch.tv/mrpowergamerbr"
+					)
+				}
+
 				currentIndex++
 				lastUpdate = System.currentTimeMillis()
 
-				val nextStatus = loritta.discordConfig.discord.activities.getOrNull(currentIndex)
-				if (nextStatus != null) {
-					repeat(10) {
-						if (nextStatus.name == "{sponsor-$it}" && loritta.sponsors.getOrNull(it) == null)
-							currentIndex++
-					}
-				}
-
-				if (currentIndex > loritta.discordConfig.discord.activities.size - 1) {
+				if (currentIndex > loritta.discordConfig.discord.activities.size - 1)
 					currentIndex = 0
-				}
 			}
 		}
 	}

@@ -4,10 +4,19 @@ import LoriDashboard
 import jq
 import kotlinx.browser.document
 import kotlinx.dom.clear
-import kotlinx.html.*
+import kotlinx.html.InputType
+import kotlinx.html.TagConsumer
+import kotlinx.html.button
+import kotlinx.html.div
 import kotlinx.html.dom.append
 import kotlinx.html.dom.create
+import kotlinx.html.h5
+import kotlinx.html.i
+import kotlinx.html.img
+import kotlinx.html.input
 import kotlinx.html.js.onClickFunction
+import kotlinx.html.style
+import kotlinx.html.textArea
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -20,14 +29,26 @@ import net.perfectdreams.spicymorenitta.application.ApplicationCall
 import net.perfectdreams.spicymorenitta.extensions.listIsEmptySection
 import net.perfectdreams.spicymorenitta.locale
 import net.perfectdreams.spicymorenitta.routes.UpdateNavbarSizePostRender
-import net.perfectdreams.spicymorenitta.utils.*
+import net.perfectdreams.spicymorenitta.utils.DashboardUtils
 import net.perfectdreams.spicymorenitta.utils.DashboardUtils.launchWithLoadingScreenAndFixContent
 import net.perfectdreams.spicymorenitta.utils.DashboardUtils.switchContentAndFixLeftSidebarScroll
+import net.perfectdreams.spicymorenitta.utils.EmbedEditorStuff
+import net.perfectdreams.spicymorenitta.utils.SaveUtils
+import net.perfectdreams.spicymorenitta.utils.TingleModal
+import net.perfectdreams.spicymorenitta.utils.TingleOptions
 import net.perfectdreams.spicymorenitta.utils.customcommands.CustomCommandData
 import net.perfectdreams.spicymorenitta.utils.customcommands.CustomCommandWrapper
 import net.perfectdreams.spicymorenitta.utils.customcommands.GiveTakeRoleCustomCommand
 import net.perfectdreams.spicymorenitta.utils.customcommands.TextCustomCommand
-import org.w3c.dom.*
+import net.perfectdreams.spicymorenitta.utils.onClick
+import net.perfectdreams.spicymorenitta.utils.select
+import net.perfectdreams.spicymorenitta.utils.trackOverflowChanges
+import net.perfectdreams.spicymorenitta.utils.visibleModal
+import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLDivElement
+import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLTextAreaElement
 
 class CustomCommandsRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender("/guild/{guildid}/configure/custom-commands") {
 	companion object {
@@ -80,7 +101,7 @@ class CustomCommandsRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender("/
 				modal.setContent(
 						document.create.div {
 							div(classes = "category-name") {
-								+ "Qual tipo de comando você deseja criar?"
+								+ locale["website.custom-commands.commandTypeQuestion"]
 							}
 
 							div {
@@ -90,10 +111,10 @@ class CustomCommandsRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender("/
 									style = "text-align: left; line-height: 1; box-sizing: border-box !important; width: 100%;"
 									div {
 										style = "font-size: 1.5em; font-weight: bolder;"
-										+"Comando de Texto"
+										+ locale["website.custom-commands.textCommandType"]
 									}
 									div {
-										+"Um comando que envia uma mensagem pré-definida ao utilizá-lo"
+										+ locale["website.custom-commands.textCommandTypeDescription"]
 									}
 
 									onClickFunction = {
@@ -221,19 +242,25 @@ class CustomCommandsRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender("/
 		modal.setContent(
 				document.create.div {
 					div(classes = "category-name") {
-						+ "Comando de Texto"
+						+ locale["website.custom-commands.textCommandType"]
 					}
 
 					h5(classes = "section-title") {
-						+ "Nome do Comando"
+						+ locale["website.custom-commands.modal.name"]
 					}
 
 					input(InputType.text, classes = "command-label") {
 						value = label
 					}
 
+					div(classes = "input-instructions") {
+						style = "font-size: 13px;"
+
+						+ locale["website.custom-commands.modal.warning"]
+					}
+
 					h5(classes = "section-title") {
-						+ "Mensagem"
+						+ locale["website.custom-commands.modal.message"]
 					}
 
 					textArea(classes = "command-text") {
@@ -249,7 +276,6 @@ class CustomCommandsRoute(val m: SpicyMorenitta) : UpdateNavbarSizePostRender("/
 		LoriDashboard.configureTextArea(
 				jq(".tingle-modal--visible .command-text"),
 				true,
-				null,
 				false,
 				null,
 				true,

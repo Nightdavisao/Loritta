@@ -4,20 +4,20 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.dao.GuildProfile
 import com.mrpowergamerbr.loritta.tables.GuildProfiles
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.Constants
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.RankingGenerator
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.update
 
 class RankCommand : AbstractCommand("rank", listOf("top", "leaderboard", "ranking"), CommandCategory.SOCIAL) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["RANK_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.rank.description")
 
 	override fun canUseInPrivateChannel(): Boolean {
 		return false
@@ -27,8 +27,18 @@ class RankCommand : AbstractCommand("rank", listOf("top", "leaderboard", "rankin
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		var page = context.args.getOrNull(0)?.toLongOrNull()
+
+		if (page != null && !RankingGenerator.isValidRankingPage(page)) {
+			context.reply(
+					LorittaReply(
+							context.locale["commands.invalidRankingPage"],
+							Constants.ERROR
+					)
+			)
+			return
+		}
 
 		if (page != null)
 			page -= 1
@@ -62,7 +72,7 @@ class RankCommand : AbstractCommand("rank", listOf("top", "leaderboard", "rankin
 							)
 						}
 				) {
-					newSuspendedTransaction {
+					loritta.newSuspendedTransaction {
 						GuildProfiles.update({ GuildProfiles.id eq it and (GuildProfiles.guildId eq context.guild.idLong) }) {
 							it[isInGuild] = false
 						}

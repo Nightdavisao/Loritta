@@ -3,18 +3,20 @@ package com.mrpowergamerbr.loritta.commands.vanilla.magic
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.parallax.ParallaxUtils
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import javax.script.Invocable
 import javax.script.ScriptEngineManager
 
 class EvalKotlinCommand : AbstractCommand("eval", listOf("evalkt", "evalkotlin", "evaluate", "evalulatekt", "evaluatekotlin"), category = CommandCategory.MAGIC, onlyOwner = true) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
+	override fun getDescription(locale: BaseLocale): String {
 		return "Executa códigos em Kotlin"
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		var kotlinCode = context.args.joinToString(" ")
+
+		val importLines = kotlinCode.lines().takeWhile { it.startsWith("import ") }
 
 		// Agora vamos mudar um pouquinho o nosso código
 		kotlinCode = """
@@ -30,8 +32,16 @@ class EvalKotlinCommand : AbstractCommand("eval", listOf("evalkt", "evalkotlin",
 			import com.mrpowergamerbr.loritta.dao.*
 			import com.mrpowergamerbr.loritta.tables.*
 			import com.mrpowergamerbr.loritta.network.*
+			import com.mrpowergamerbr.loritta.utils.extensions.*
+			import net.perfectdreams.loritta.tables.*
+			import net.perfectdreams.loritta.tables.servers.*
+			import net.perfectdreams.loritta.tables.servers.moduleconfigs.*
+			import net.perfectdreams.loritta.dao.*
+			import net.perfectdreams.loritta.dao.servers.*
+			import net.perfectdreams.loritta.dao.servers.moduleconfigs.*
 			import com.github.salomonbrys.kotson.*
 			import org.jetbrains.exposed.sql.transactions.*
+			import org.jetbrains.exposed.sql.*
 			import java.awt.image.BufferedImage
 			import java.io.File
 			import javax.imageio.ImageIO
@@ -39,10 +49,11 @@ class EvalKotlinCommand : AbstractCommand("eval", listOf("evalkt", "evalkotlin",
 			import io.ktor.client.request.*
 			import io.ktor.client.statement.*
 			import io.ktor.http.*
+			${importLines.joinToString("\n")}
 
-			fun loritta(context: CommandContext, locale: LegacyBaseLocale) {
+			fun loritta(context: CommandContext, locale: BaseLocale) {
 			    GlobalScope.launch(loritta.coroutineDispatcher) {
-					$kotlinCode
+					${kotlinCode.lines().dropWhile { it.startsWith("import ") }.joinToString("\n") }
 				}
 			}""".trimIndent()
 

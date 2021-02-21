@@ -6,18 +6,17 @@ import com.mrpowergamerbr.loritta.profile.ProfileCreator
 import com.mrpowergamerbr.loritta.profile.ProfileUserInfoData
 import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import net.dv8tion.jda.api.entities.Guild
-import net.dv8tion.jda.api.entities.Member
+import net.perfectdreams.loritta.profile.ProfileUtils
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.*
 import java.awt.image.BufferedImage
 import java.io.File
 import java.io.FileInputStream
-import javax.imageio.ImageIO
 
 class NextGenProfileCreator : ProfileCreator("nextGenDark") {
-	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
-		val profileWrapper = ImageIO.read(File(Loritta.ASSETS, "profile/next_gen/profile_wrapper.png"))
+	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
+		val profileWrapper = readImage(File(Loritta.ASSETS, "profile/next_gen/profile_wrapper.png"))
 
 		val whitneySemiBold = FileInputStream(File(Loritta.ASSETS + "whitney-semibold.ttf")).use {
 			Font.createFont(Font.TRUETYPE_FONT, it)
@@ -55,7 +54,7 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 				val whitneyMedium20 = whitneyMedium22.deriveFont(20f)
 				graphics.color = Color.WHITE
 				graphics.font = whitneySemiBold16
-				ImageUtils.drawCenteredString(graphics, locale.toNewLocale()["profile.marriedWith"], Rectangle(311, 0, 216, 14), whitneySemiBold16)
+				ImageUtils.drawCenteredString(graphics, locale["profile.marriedWith"], Rectangle(311, 0, 216, 14), whitneySemiBold16)
 				graphics.font = whitneyMedium20
 				ImageUtils.drawCenteredString(graphics, marriedWith.name + "#" + marriedWith.discriminator, Rectangle(311, 0 + 18, 216, 18), whitneyMedium20)
 				graphics.font = whitneySemiBold16
@@ -78,7 +77,7 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 
 		graphics.color = Color.BLACK
 		graphics.font = oswaldRegular42
-		ImageUtils.drawCenteredString(graphics, locale.toNewLocale()["profile.aboutMe"].toUpperCase(), Rectangle(0, 427, 221, 51), oswaldRegular42)
+		ImageUtils.drawCenteredString(graphics, locale["profile.aboutMe"].toUpperCase(), Rectangle(0, 427, 221, 51), oswaldRegular42)
 		graphics.font = oswaldRegular36
 
 		drawReputations(user, graphics)
@@ -91,7 +90,7 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 		val biggestStrWidth = drawUserInfo(user, userProfile, guild, graphics)
 
 		graphics.color = Color.BLACK
-		drawMarriageStatus(userProfile, locale.toNewLocale(), graphics)
+		drawMarriageStatus(userProfile, locale, graphics)
 		graphics.color = Color.WHITE
 
 		graphics.font = whitneyMedium22
@@ -132,7 +131,10 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 		graphics.drawText("Global", 232, 157)
 		userInfo.add("Global")
 		val globalPosition = ProfileUtils.getGlobalExperiencePosition(userProfile)
-		graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 232, 173)
+		if (globalPosition != null)
+			graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 232, 173)
+		else
+			graphics.drawText("${userProfile.xp} XP", 232, 173)
 
 		if (guild != null) {
 			val localProfile = ProfileUtils.getLocalProfile(guild, user)
@@ -144,7 +146,11 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 			// Iremos remover os emojis do nome da guild, já que ele não calcula direito no stringWidth
 			graphics.drawText(guild.name.replace(Constants.EMOJI_PATTERN.toRegex(), ""), 16, 51)
 			if (xpLocal != null) {
-				graphics.drawText("#$localPosition / $xpLocal XP", 16, 70)
+				if (localPosition != null) {
+					graphics.drawText("#$localPosition / $xpLocal XP", 16, 70)
+				} else {
+					graphics.drawText("$xpLocal XP", 16, 70)
+				}
 			} else {
 				graphics.drawText("???", 16, 70)
 			}
@@ -154,7 +160,11 @@ class NextGenProfileCreator : ProfileCreator("nextGenDark") {
 		val globalEconomyPosition = ProfileUtils.getGlobalEconomyPosition(userProfile)
 
 		graphics.drawText("Sonhos", 631, 34)
-		graphics.drawText("#$globalEconomyPosition / ${userProfile.money}", 631, 54)
+		if (globalEconomyPosition != null)
+			graphics.drawText("#$globalEconomyPosition / ${userProfile.money}", 631, 54)
+		else
+			graphics.drawText("${userProfile.money}", 631, 54)
+
 		graphics.color = Color.WHITE
 		return 0
 	}

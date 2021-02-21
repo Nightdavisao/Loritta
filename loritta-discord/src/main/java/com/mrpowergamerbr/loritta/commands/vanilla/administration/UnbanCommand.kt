@@ -3,38 +3,24 @@ package com.mrpowergamerbr.loritta.commands.vanilla.administration
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
-import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.MessageUtils
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.User
-import net.perfectdreams.loritta.api.commands.ArgumentType
-import net.perfectdreams.loritta.api.commands.CommandArguments
 import net.perfectdreams.loritta.api.commands.CommandCategory
-import net.perfectdreams.loritta.api.commands.arguments
+import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.utils.Emotes
 import net.perfectdreams.loritta.utils.PunishmentAction
 
-class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategory.ADMIN) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["UNBAN_Description"]
-	}
-
-	override fun getUsage(locale: LegacyBaseLocale): CommandArguments {
-		return arguments {
-			argument(ArgumentType.USER) {
-				optional = false
-			}
-		}
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("159985870458322944", "159985870458322944 Pediu desculpas pelo o que aconteceu, e prometeu que o que aconteceu não irá se repetir.", "395935916952256523 Bani sem querer, desculpa!")
-	}
+class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategory.MODERATION) {
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.unban.description")
+	override fun getExamplesKey() = AdminUtils.PUNISHMENT_EXAMPLES_KEY
+	override fun getUsage() = AdminUtils.PUNISHMENT_USAGES
 
 	override fun getDiscordPermissions(): List<Permission> {
 		return listOf(Permission.BAN_MEMBERS)
@@ -48,7 +34,7 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 		return listOf(Permission.BAN_MEMBERS)
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val (users, rawReason) = AdminUtils.checkAndRetrieveAllValidUsersFromMessages(context) ?: return
 
@@ -58,7 +44,7 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 				if (member != null) {
 					context.reply(
                             LorittaReply(
-                                    locale.toNewLocale()["$LOCALE_PREFIX.unban.userIsInTheGuild"],
+                                    locale["$LOCALE_PREFIX.unban.userIsInTheGuild"],
                                     Constants.ERROR
                             )
 					)
@@ -77,7 +63,7 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 
 				context.reply(
                         LorittaReply(
-                                locale.toNewLocale()["$LOCALE_PREFIX.unban.successfullyUnbanned"] + " ${Emotes.LORI_HMPF}",
+                                locale["$LOCALE_PREFIX.unban.successfullyUnbanned"] + " ${Emotes.LORI_HMPF}",
                                 "\uD83C\uDF89"
                         )
 				)
@@ -108,9 +94,9 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 	}
 
 	companion object {
-		private const val LOCALE_PREFIX = "commands.moderation"
+		private const val LOCALE_PREFIX = "commands.command"
 
-		fun unban(settings: AdminUtils.ModerationConfigSettings, guild: Guild, punisher: User, locale: LegacyBaseLocale, user: User, reason: String, isSilent: Boolean) {
+		fun unban(settings: AdminUtils.ModerationConfigSettings, guild: Guild, punisher: User, locale: BaseLocale, user: User, reason: String, isSilent: Boolean) {
 			if (!isSilent) {
 				val punishLogMessage = AdminUtils.getPunishmentForMessage(
 						settings,
@@ -127,9 +113,9 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 								listOf(user, guild),
 								guild,
 								mutableMapOf(
-										"duration" to locale.toNewLocale()["$LOCALE_PREFIX.mute.forever"]
+										"duration" to locale["$LOCALE_PREFIX.mute.forever"]
 								) + AdminUtils.getStaffCustomTokens(punisher)
-										+ AdminUtils.getPunishmentCustomTokens(locale.toNewLocale(), reason, "${LOCALE_PREFIX}.unban")
+										+ AdminUtils.getPunishmentCustomTokens(locale, reason, "${LOCALE_PREFIX}.unban")
 						)
 
 						message?.let {
@@ -139,7 +125,7 @@ class UnbanCommand : AbstractCommand("unban", listOf("desbanir"), CommandCategor
 				}
 			}
 
-			guild.unban(user).reason(AdminUtils.generateAuditLogMessage(locale.toNewLocale(), punisher, reason))
+			guild.unban(user).reason(AdminUtils.generateAuditLogMessage(locale, punisher, reason))
 					.queue()
 		}
 	}

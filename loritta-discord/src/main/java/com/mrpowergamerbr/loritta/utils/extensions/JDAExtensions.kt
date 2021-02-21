@@ -1,7 +1,10 @@
 package com.mrpowergamerbr.loritta.utils.extensions
 
 import com.mrpowergamerbr.loritta.LorittaLauncher.loritta
+import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import kotlinx.coroutines.future.await
+import mu.KotlinLogging
 import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.Permission.*
@@ -9,13 +12,37 @@ import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import net.dv8tion.jda.api.requests.ErrorResponse
 import net.dv8tion.jda.api.requests.RestAction
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
+import net.dv8tion.jda.api.requests.restaction.MessageAction
 
-suspend fun <T> RestAction<T>.await() : T {
-	return suspendCoroutine { cont ->
-		this.queue({ cont.resume(it)}, { cont.resumeWithException(it) })
+suspend fun <T> RestAction<T>.await() : T = this.submit().await()
+
+private val logger = KotlinLogging.logger {}
+
+/**
+ * Sends a message with [await] and checks if the message send failed due to a unknown message for the message's reference.
+ *
+ * If it was failed due to a missing message reference, the message is sent again without the reference.
+ *
+ * This *can't* be used if the message has a file, because JDA will clear the resources after sending the request!
+ *
+ * @return the message
+ */
+suspend fun MessageAction.awaitCheckForReplyErrors() : Message {
+	try {
+		return this.submit().await()
+	} catch (e: ErrorResponseException) {
+		if (e.errorCode == 400 && e.meaning == "{\"message_reference\":[\"Unknown message\"]}") {
+			logger.warn(e) { "I tried replying to a message, but it was deleted! This *may* be a bug (command deleting the user's message) or it just may be the user deleting their own message, I will try sending the message without a reference..." }
+			// If we tried to reply to a unknown message, let's resend the message again but without the reference.
+			// Of course, this is a *issue*, so we need to log about this issue because this needs to be fixed!
+			//
+			// Seting to 0L removes the reference, see:
+			// https://github.com/DV8FromTheWorld/JDA/blob/8cffb0a24efc14e01b46df096cd35c38360d3063/src/main/java/net/dv8tion/jda/internal/requests/restaction/MessageActionImpl.java#L512
+			return this.referenceById(0L)
+					.submit()
+					.await()
+		}
+		throw e
 	}
 }
 
@@ -250,6 +277,37 @@ fun RestAction<Message>.queueAfterWithMessagePerSecondTargetAndClusterLoadBalanc
 	)
 }
 
+/**
+ * Make the message a reply to the referenced message.
+ *
+ * This checks if the bot has [net.dv8tion.jda.api.Permission.MESSAGE_HISTORY] and, if it has, the message is referenced.
+ *
+ * @param message The target message
+ *
+ * @return Updated MessageAction for chaining convenience
+ */
+fun MessageAction.referenceIfPossible(message: Message): MessageAction {
+	if (message.isFromGuild && !message.guild.selfMember.hasPermission(message.textChannel, MESSAGE_HISTORY))
+		return this
+	return this.reference(message)
+}
+
+/**
+ * Make the message a reply to the referenced message.
+ *
+ * This has the same checks as [referenceIfPossible] plus a check to see if [addInlineReply] is enabled and to check if [ServerConfig.deleteMessageAfterCommand] is false.
+ *
+ * @param message The target message
+ *
+ * @return Updated MessageAction for chaining convenience
+ */
+fun MessageAction.referenceIfPossible(message: Message, serverConfig: ServerConfig, addInlineReply: Boolean = true): MessageAction {
+	// We check if deleteMessageAfterCommand is true because it doesn't matter trying to reply to a message that's going to be deleted.
+	if (!addInlineReply || serverConfig.deleteMessageAfterCommand)
+		return this
+	return this.referenceIfPossible(message)
+}
+
 fun Permission.localized(locale: BaseLocale): String {
 	return when (this) {
 		CREATE_INSTANT_INVITE -> locale["discord.permissions.createInstantInvite"]
@@ -264,7 +322,7 @@ fun Permission.localized(locale: BaseLocale): String {
 		VIEW_CHANNEL -> locale["discord.permissions.viewChannel"]
 		MESSAGE_READ -> locale["discord.permissions.messageRead"]
 		MESSAGE_WRITE -> locale["discord.permissions.messageWrite"]
-		MESSAGE_TTS -> locale["discord.permissions.attachFiles"]
+		MESSAGE_TTS -> locale["discord.permissions.messageTTS"]
 		MESSAGE_MANAGE -> locale["discord.permissions.messageManage"]
 		MESSAGE_EMBED_LINKS -> locale["discord.permissions.messageEmbedLinks"]
 		MESSAGE_ATTACH_FILES -> locale["discord.permissions.attachFiles"]

@@ -4,35 +4,29 @@ import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
-import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.LorittaUtils
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.minecraft.MCUtils
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.messages.LorittaReply
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Graphics2D
 import java.awt.image.BufferedImage
 import java.io.File
-import javax.imageio.ImageIO
 
 class McMoletomCommand : AbstractCommand("mcmoletom", listOf("mcsweater"), CommandCategory.MINECRAFT) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale.toNewLocale()["commands.minecraft.mcsweater.description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.mcsweater.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.category.minecraft.skinPlayerNameExamples")
 
-	override fun getUsage(): String {
-		return "nickname"
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("Monerk")
-	}
+	// TODO: Fix Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val attached = context.message.attachments.firstOrNull { it.isImage }
 
 		var skin: BufferedImage? = null
@@ -46,7 +40,7 @@ class McMoletomCommand : AbstractCommand("mcmoletom", listOf("mcsweater"), Comma
 				if (profile == null) {
 					context.reply(
                             LorittaReply(
-                                    locale["MCSKIN_UnknownPlayer", context.args.getOrNull(0)],
+									locale["commands.category.minecraft.unknownPlayer", context.args.getOrNull(0)],
                                     Constants.ERROR
                             )
 					)
@@ -77,22 +71,22 @@ class McMoletomCommand : AbstractCommand("mcmoletom", listOf("mcsweater"), Comma
 
 			if (moletom == null) {
 				context.reply(
-						locale["MCMOLETOM_InvalidSkin"],
+						locale["commands.command.mcsweater.invalidSkin"],
 						Constants.ERROR
 				)
 				return
 			}
 
-			val str = "<:loritta:331179879582269451> **|** " + context.getAsMention(true) + locale["MCMOLETOM_Done"]
+			val str = "<:loritta:331179879582269451> **|** " + context.getAsMention(true) + locale["commands.command.mcsweater.done"]
 			val message = context.sendFile(moletom, "moletom.png", str)
 
 			val image = message.attachments.first()
 
-			message.editMessage(str + " " + locale["MCMOLETOM_UploadToMojang"] + " <https://minecraft.net/pt-br/profile/skin/remote/?url=${image.url}>").queue()
+			message.editMessage(str + " " + locale["commands.command.mcsweater.uploadToMojang"] + " <https://minecraft.net/pt-br/profile/skin/remote/?url=${image.url}>").queue()
 		} else {
 			context.reply(
                     LorittaReply(
-                            locale["MCSKIN_UnknownPlayer", context.args.getOrNull(0)],
+							locale["commands.category.minecraft.unknownPlayer", context.args.getOrNull(0)],
                             Constants.ERROR
                     )
 			)
@@ -100,7 +94,7 @@ class McMoletomCommand : AbstractCommand("mcmoletom", listOf("mcsweater"), Comma
 	}
 
 	companion object {
-		fun createSkin(originalSkin: BufferedImage?): BufferedImage? {
+		suspend fun createSkin(originalSkin: BufferedImage?): BufferedImage? {
 			if (originalSkin == null || (originalSkin.height != 64 && originalSkin.height != 32) || originalSkin.width != 64)
 				return null
 
@@ -140,7 +134,7 @@ class McMoletomCommand : AbstractCommand("mcmoletom", listOf("mcsweater"), Comma
 			val alexTestColor = Color(skin.getRGB(50, 16), true)
 			val isAlex = alexTestColor.alpha != 255
 
-			val template = if (isAlex) ImageIO.read(File(Loritta.ASSETS, "template_alex.png")) else ImageIO.read(File(Loritta.ASSETS, "template_steve.png"))
+			val template = if (isAlex) readImage(File(Loritta.ASSETS, "template_alex.png")) else readImage(File(Loritta.ASSETS, "template_steve.png"))
 			val handColor = if (isAlex) {
 				Color(skin.getRGB(48, 17), true)
 			} else {

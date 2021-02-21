@@ -6,12 +6,14 @@ import io.ktor.client.features.websocket.*
 import io.ktor.http.cio.websocket.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import mu.KotlinLogging
+import net.perfectdreams.loritta.plugin.loribroker.LoriBrokerPlugin
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.ZoneId
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
@@ -22,7 +24,9 @@ import kotlin.coroutines.suspendCoroutine
  */
 class TradingViewRelayConnector(
         val urlString: String,
-        val outdatedPingTime: Long = 7_500,
+        // The TradingView Relay Server sends a ping every 5 seconds so, just to be safe, we will ignore requests if the
+        // server haven't sent any new pings after 10s
+        val outdatedPingTime: Long = 10_000,
         val outdatedStocksTime: Long = 60_000
 ) {
     companion object {
@@ -50,9 +54,12 @@ class TradingViewRelayConnector(
             while (this@TradingViewRelayConnector.isActive) {
                 try {
                     connect()
-                } catch (e: Exception) { logger.warn(e) { "Disconnected due to exception! Trying again in 1s..." } }
+                } catch (e: Exception) {
+                    logger.warn(e) { "Disconnected due to exception! Trying again in 1s..." }
+                }
+
                 logger.warn { "Disconnected! Trying again in 1s..." }
-                Thread.sleep(1_000)
+                delay(1_000)
             }
         }
     }
@@ -141,15 +148,51 @@ class TradingViewRelayConnector(
             // We don't need to check for stale data if the ticker doesn't exist
             val diffLastPing = (System.currentTimeMillis() - lastPingPacketReceivedAt)
             if (diffLastPing >= outdatedPingTime)
-                throw PingStocksTimeoutException("Ping stocks timeout when trying to get $tickerId ticker!")
+                throw PingStocksTimeoutException("Ping stocks timeout when trying to get $tickerId ticker! Last ping was received ${diffLastPing}ms ago!")
 
+            val ticketData = tickers[tickerId]
             val diffLastStocks = (System.currentTimeMillis() - lastStocksPacketReceivedAt)
-            if (diffLastStocks >= outdatedStocksTime)
-                throw OutdatedStocksDataException("Outdated stocks data when trying to get $tickerId ticker!")
 
-            tickers[tickerId]
+            // The "isStockMarketOpen" check is here to avoid errors when the stock data is *actually* closed, which
+            // causes the relay to not send new data until the server is restarted or when the stock market is open again.
+            //
+            // So, to avoid this, we are going to add some additional checks.
+            val currentSession = ticketData?.get("current_session")?.jsonPrimitive?.contentOrNull
+
+            // We have some fail safes, to avoid buggy states and wrecking havoc.
+            // First, we will check if the currentSession is "market" (open) and the stock market should *not* be open
+            // This is a instant fail
+            if (currentSession == LoriBrokerPlugin.MARKET && !isStockMarketOpen())
+                throw OutdatedStocksDataException("Outdated stocks data when trying to get $tickerId ticker! Ticker is open to market but we are outside of the stock market open hours! Last stock data was received ${diffLastStocks}ms ago!")
+
+            // The second fail safe is if the market is checked whenever the ticker session is market
+            if (currentSession == LoriBrokerPlugin.MARKET) {
+                // In this case, we check if the data is not stale and, if it is, we fail
+                if (diffLastStocks >= outdatedStocksTime)
+                    throw OutdatedStocksDataException("Outdated stocks data when trying to get $tickerId ticker! Last stock data was received ${diffLastStocks}ms ago!")
+            }
+
+            // We don't really care about if the session is not market because if it ain't market == can't buy/sell, so the problem would be very small. (as in: won't cause Loritta issues)
+            // Also we don't check if != market but stocks should be open, we don't check that because of holidays and stuff like that.
+            ticketData
         } else
             null
+    }
+
+    /**
+     * Checks if the stock market *should* be open at this moment.
+     *
+     * Brazil's Stock Market is open from 10am to 6pm, not open on the end of week and not open during holidays.
+     *
+     * **Attention:** This does not check for holidays and stuff!
+     *
+     * @return if the stock market should be open at this moment
+     */
+    private fun isStockMarketOpen(): Boolean {
+        val now = Instant.now()
+                .atZone(ZoneId.of("America/Sao_Paulo"))
+
+        return (now.hour in 10..18 && !(now.dayOfWeek == DayOfWeek.SATURDAY || now.dayOfWeek == DayOfWeek.SUNDAY))
     }
 
     /**

@@ -5,21 +5,22 @@ import com.mrpowergamerbr.loritta.dao.Profile
 import com.mrpowergamerbr.loritta.profile.ProfileCreator
 import com.mrpowergamerbr.loritta.profile.ProfileUserInfoData
 import com.mrpowergamerbr.loritta.utils.*
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
 import kotlinx.coroutines.runBlocking
 import net.dv8tion.jda.api.entities.Guild
+import net.perfectdreams.loritta.profile.ProfileUtils
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.*
 import java.awt.image.BufferedImage
 import java.io.File
 import java.io.FileInputStream
-import javax.imageio.ImageIO
 
 class Halloween2019ProfileCreator : ProfileCreator("halloween2019") {
-	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
+	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
 		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 	}
 
-	override suspend fun createGif(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): List<BufferedImage> {
+	override suspend fun createGif(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): List<BufferedImage> {
 		val list = mutableListOf<BufferedImage>()
 
 		val whitneySemiBold = FileInputStream(File(Loritta.ASSETS + "whitney-semibold.ttf")).use {
@@ -39,7 +40,7 @@ class Halloween2019ProfileCreator : ProfileCreator("halloween2019") {
 				.deriveFont(42F)
 
 		val avatar = LorittaUtils.downloadImage(user.avatarUrl)!!.getScaledInstance(152, 152, BufferedImage.SCALE_SMOOTH)
-		val marrySection = ImageIO.read(File(Loritta.ASSETS, "profile/halloween_2019/marry.png"))
+		val marrySection = readImage(File(Loritta.ASSETS, "profile/halloween_2019/marry.png"))
 
 		val marriage = loritta.newSuspendedTransaction { userProfile.marriage }
 
@@ -70,7 +71,7 @@ class Halloween2019ProfileCreator : ProfileCreator("halloween2019") {
 		val resizedBadges = badges.map { it.getScaledInstance(35, 35, BufferedImage.SCALE_SMOOTH).toBufferedImage() }
 
 		for (i in 0..29) {
-			val profileWrapper = ImageIO.read(File(Loritta.ASSETS, "profile/halloween_2019/frames/halloween_2019_${i.toString().padStart(6, '0')}.png"))
+			val profileWrapper = readImage(File(Loritta.ASSETS, "profile/halloween_2019/frames/halloween_2019_${i.toString().padStart(6, '0')}.png"))
 
 			val base = BufferedImage(800, 600, BufferedImage.TYPE_INT_ARGB) // Base
 			val graphics = base.graphics.enableFontAntiAliasing()
@@ -102,7 +103,7 @@ class Halloween2019ProfileCreator : ProfileCreator("halloween2019") {
 				if (marriedWith != null) {
 					graphics.color = Color.WHITE
 					graphics.font = whitneyBold12
-					ImageUtils.drawCenteredString(graphics, locale.toNewLocale()["profile.marriedWith"], Rectangle(635, 350, 165, 14), whitneyBold12)
+					ImageUtils.drawCenteredString(graphics, locale["profile.marriedWith"], Rectangle(635, 350, 165, 14), whitneyBold12)
 					graphics.font = whitneyMedium16
 					ImageUtils.drawCenteredString(graphics, marriedWith.name + "#" + marriedWith.discriminator, Rectangle(635, 350 + 16, 165, 18), whitneyMedium16)
 					graphics.font = whitneyBold12
@@ -140,24 +141,34 @@ class Halloween2019ProfileCreator : ProfileCreator("halloween2019") {
 		ImageUtils.drawCenteredString(graphics, "$reputations reps", Rectangle(634, 404, 166, 52), font)
 	}
 
-	fun drawUserInfo(user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, graphics: Graphics, globalPosition: Long, localPosition: Long?, xpLocal: Long?, globalEconomyPosition: Long): Int {
+	fun drawUserInfo(user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, graphics: Graphics, globalPosition: Long?, localPosition: Long?, xpLocal: Long?, globalEconomyPosition: Long?): Int {
 		val userInfo = mutableListOf<String>()
 		userInfo.add("Global")
 
-		userInfo.add("#$globalPosition / ${userProfile.xp} XP")
+		if (globalPosition != null)
+			userInfo.add("#$globalPosition / ${userProfile.xp} XP")
+		else
+			userInfo.add("${userProfile.xp} XP")
 
 		if (guild != null) {
 			// Iremos remover os emojis do nome da guild, já que ele não calcula direito no stringWidth
 			userInfo.add(guild.name.replace(Constants.EMOJI_PATTERN.toRegex(), ""))
 			if (xpLocal != null) {
-				userInfo.add("#$localPosition / $xpLocal XP")
+				if (localPosition != null) {
+					userInfo.add("#$localPosition / $xpLocal XP")
+				} else {
+					userInfo.add("$xpLocal XP")
+				}
 			} else {
 				userInfo.add("???")
 			}
 		}
 
 		userInfo.add("Sonhos")
-		userInfo.add("#$globalEconomyPosition / ${userProfile.money}")
+		if (globalEconomyPosition != null)
+			userInfo.add("#$globalEconomyPosition / ${userProfile.money}")
+		else
+			userInfo.add("${userProfile.money}")
 
 		val biggestStrWidth = graphics.fontMetrics.stringWidth(userInfo.maxBy { graphics.fontMetrics.stringWidth(it) }!!)
 

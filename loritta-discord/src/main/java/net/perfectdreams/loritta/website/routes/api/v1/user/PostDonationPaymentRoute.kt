@@ -9,6 +9,8 @@ import com.google.gson.JsonParser
 import com.mrpowergamerbr.loritta.dao.DonationKey
 import io.ktor.application.*
 import io.ktor.request.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.utils.PerfectPaymentsClient
@@ -30,7 +32,7 @@ class PostDonationPaymentRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLogi
 		if (!net.perfectdreams.loritta.website.utils.WebsiteUtils.checkIfAccountHasMFAEnabled(refreshedUserIdentification))
 			return
 
-		val payload = JsonParser.parseString(call.receiveText()).obj
+		val payload = withContext(Dispatchers.IO) { JsonParser.parseString(call.receiveText()).obj }
 
 		val whoDonated = "${userIdentification.username}#${userIdentification.discriminator}"
 
@@ -61,6 +63,12 @@ class PostDonationPaymentRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLogi
 			grana.toFloat()
 		}
 
+		val storedAmount = if (donationKey != null) {
+			donationKey.value.toFloat()
+		} else {
+			grana.toFloat()
+		}
+
 		var discount: Double? = null
 		var metadata: JsonObject? = null
 		if (donationKey != null) {
@@ -73,6 +81,7 @@ class PostDonationPaymentRoute(loritta: LorittaDiscord) : RequiresAPIDiscordLogi
 				userIdentification.id.toLong(),
 				"Doação para a Loritta - $whoDonated",
 				(realValue * 100).toLong(),
+				(storedAmount * 100).toLong(),
 				PaymentReason.DONATION,
 				"LORITTA-PREMIUM-%d",
 				discount,

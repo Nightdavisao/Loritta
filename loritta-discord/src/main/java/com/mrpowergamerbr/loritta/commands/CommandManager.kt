@@ -12,8 +12,6 @@ import com.mrpowergamerbr.loritta.commands.vanilla.minecraft.*
 import com.mrpowergamerbr.loritta.commands.vanilla.misc.*
 import com.mrpowergamerbr.loritta.commands.vanilla.music.LyricsCommand
 import com.mrpowergamerbr.loritta.commands.vanilla.pokemon.PokedexCommand
-import com.mrpowergamerbr.loritta.commands.vanilla.roblox.RbGameCommand
-import com.mrpowergamerbr.loritta.commands.vanilla.roblox.RbUserCommand
 import com.mrpowergamerbr.loritta.commands.vanilla.social.*
 import com.mrpowergamerbr.loritta.commands.vanilla.undertale.UndertaleBattleCommand
 import com.mrpowergamerbr.loritta.commands.vanilla.undertale.UndertaleBoxCommand
@@ -21,11 +19,13 @@ import com.mrpowergamerbr.loritta.commands.vanilla.utils.*
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
 import com.mrpowergamerbr.loritta.utils.*
+import com.mrpowergamerbr.loritta.utils.DateUtils
 import com.mrpowergamerbr.loritta.utils.config.EnvironmentType
 import com.mrpowergamerbr.loritta.utils.extensions.await
+import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
 import com.mrpowergamerbr.loritta.utils.extensions.localized
+import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.ChannelType
@@ -35,13 +35,12 @@ import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.dao.servers.moduleconfigs.MiscellaneousConfig
 import net.perfectdreams.loritta.tables.ExecutedCommandsLog
 import net.perfectdreams.loritta.tables.servers.CustomGuildCommands
-import net.perfectdreams.loritta.utils.CommandUtils
-import net.perfectdreams.loritta.utils.DonateUtils
-import net.perfectdreams.loritta.utils.Emotes
-import net.perfectdreams.loritta.utils.UserPremiumPlans
+import net.perfectdreams.loritta.utils.*
+import net.perfectdreams.loritta.utils.metrics.Prometheus
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
+import java.sql.Connection
 import java.util.*
 import java.util.concurrent.CancellationException
 import java.util.jar.JarFile
@@ -85,7 +84,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(RipVidaCommand())
 		commandMap.add(JoojCommand())
 		commandMap.add(OjjoCommand())
-		commandMap.add(GameJoltCommand())
 		commandMap.add(TwitchCommand())
 
 		// =======[ IMAGENS ]======
@@ -102,7 +100,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(DrawnMaskCommand())
 
 		// =======[ DIVERSÃO ]======
-		commandMap.add(CongaParrotCommand())
 		commandMap.add(BemBoladaCommand())
 		commandMap.add(TodoGrupoTemCommand())
 		commandMap.add(TioDoPaveCommand())
@@ -111,7 +108,6 @@ class CommandManager(loritta: Loritta) {
 		// =======[ MISC ]======
 		commandMap.add(AjudaCommand())
 		commandMap.add(PingCommand())
-		commandMap.add(QuoteCommand())
 		commandMap.add(SayCommand())
 		commandMap.add(EscolherCommand())
 		commandMap.add(LanguageCommand())
@@ -129,8 +125,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(MarryCommand())
 		commandMap.add(DivorceCommand())
 		commandMap.add(GenderCommand())
-		if (loritta.config.loritta.environment == EnvironmentType.CANARY)
-			commandMap.add(RegisterCommand())
 
 		// =======[ UTILS ]=======
 		commandMap.add(TranslateCommand())
@@ -141,7 +135,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(DicioCommand())
 		commandMap.add(TempoCommand())
 		commandMap.add(PackageInfoCommand())
-		commandMap.add(KnowYourMemeCommand())
 		commandMap.add(AnagramaCommand())
 		commandMap.add(CalculadoraCommand())
 		commandMap.add(MorseCommand())
@@ -174,10 +167,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(McSkinCommand())
 		commandMap.add(McMoletomCommand())
 
-		// =======[ ROBLOX ]========
-		commandMap.add(RbUserCommand())
-		commandMap.add(RbGameCommand())
-
 		// =======[ UNDERTALE ]========
 		commandMap.add(UndertaleBoxCommand())
 		commandMap.add(UndertaleBattleCommand())
@@ -190,7 +179,6 @@ class CommandManager(loritta: Loritta) {
 		// commandMap.add(MALMangaCommand())
 
 		// =======[ ADMIN ]========
-		commandMap.add(LimparCommand())
 		commandMap.add(RoleIdCommand())
 		commandMap.add(MuteCommand())
 		commandMap.add(UnmuteCommand())
@@ -207,8 +195,6 @@ class CommandManager(loritta: Loritta) {
 
 		// =======[ MAGIC ]========
 		commandMap.add(ReloadCommand())
-		commandMap.add(EvalCommand())
-		commandMap.add(NashornTestCommand())
 		commandMap.add(ServerInvitesCommand())
 		commandMap.add(LorittaBanCommand())
 		commandMap.add(LorittaUnbanCommand())
@@ -223,9 +209,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(PagarCommand())
 		commandMap.add(SonhosCommand())
 		commandMap.add(LigarCommand())
-
-		if (false && loritta.config.loritta.environment == EnvironmentType.CANARY)
-			commandMap.add(ExchangeCommand())
 	}
 
 	private fun createBotinfoCommand(): BotInfoCommand {
@@ -236,10 +219,10 @@ class CommandManager(loritta: Loritta) {
 		return BotInfoCommand(BuildInfo(mainAttributes))
 	}
 
-	suspend fun matches(ev: LorittaMessageEvent, rawArguments: List<String>, serverConfig: ServerConfig, locale: BaseLocale, legacyLocale: LegacyBaseLocale, lorittaUser: LorittaUser): Boolean {
+	suspend fun matches(ev: LorittaMessageEvent, rawArguments: List<String>, serverConfig: ServerConfig, locale: BaseLocale, lorittaUser: LorittaUser): Boolean {
 		// Primeiro os comandos vanilla da Loritta(tm)
 		for (command in commandMap) {
-			if (matches(command, rawArguments, ev, serverConfig, locale, legacyLocale, lorittaUser))
+			if (matches(command, rawArguments, ev, serverConfig, locale, lorittaUser))
 				return true
 		}
 
@@ -258,7 +241,7 @@ class CommandManager(loritta: Loritta) {
 		}
 
 		for (command in nashornCommands) {
-			if (matches(command, rawArguments, ev, serverConfig, locale, legacyLocale, lorittaUser))
+			if (matches(command, rawArguments, ev, serverConfig, locale, lorittaUser))
 				return true
 		}
 
@@ -274,7 +257,7 @@ class CommandManager(loritta: Loritta) {
 	 * @param lorittaUser the user that is executing this command
 	 * @return            if the command was handled or not
 	 */
-	suspend fun matches(command: AbstractCommand, rawArguments: List<String>, ev: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, legacyLocale: LegacyBaseLocale, lorittaUser: LorittaUser): Boolean {
+	suspend fun matches(command: AbstractCommand, rawArguments: List<String>, ev: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, lorittaUser: LorittaUser): Boolean {
 		val message = ev.message.contentDisplay
 		val baseLocale = locale
 
@@ -301,18 +284,18 @@ class CommandManager(loritta: Loritta) {
 				strippedArgs = rawArgs
 			}
 
-			var reparsedLegacyLocale = legacyLocale
+			var reparsedLegacyLocale = locale
 			if (!isPrivateChannel) { // TODO: Migrar isto para que seja customizável
 				when (ev.channel.id) {
-					"414839559721975818" -> reparsedLegacyLocale = loritta.getLegacyLocaleById("default") // português (default)
-					"404713176995987466" -> reparsedLegacyLocale = loritta.getLegacyLocaleById("en-us") // inglês
-					"414847180285935622" -> reparsedLegacyLocale = loritta.getLegacyLocaleById("es-es") // espanhol
-					"414847291669872661" -> reparsedLegacyLocale = loritta.getLegacyLocaleById("pt-pt") // português de portugal
-					"414847379670564874" -> reparsedLegacyLocale = loritta.getLegacyLocaleById("pt-funk") // português funk
+					"414839559721975818" -> reparsedLegacyLocale = loritta.getLocaleById("default") // português (default)
+					"404713176995987466" -> reparsedLegacyLocale = loritta.getLocaleById("en-us") // inglês
+					"414847180285935622" -> reparsedLegacyLocale = loritta.getLocaleById("es-es") // espanhol
+					"414847291669872661" -> reparsedLegacyLocale = loritta.getLocaleById("pt-pt") // português de portugal
+					"414847379670564874" -> reparsedLegacyLocale = loritta.getLocaleById("pt-funk") // português funk
 				}
 			}
 
-			val context = CommandContext(serverConfig, lorittaUser, baseLocale, legacyLocale, ev, command, args, rawArgs, strippedArgs)
+			val context = CommandContext(serverConfig, lorittaUser, baseLocale, ev, command, args, rawArgs, strippedArgs)
 
 			try {
 				if (ev.message.isFromType(ChannelType.TEXT)) {
@@ -334,33 +317,38 @@ class CommandManager(loritta: Loritta) {
 										ev.guild
 								)
 								if (generatedMessage != null)
-									ev.textChannel.sendMessage(generatedMessage).queue()
+									ev.textChannel.sendMessage(generatedMessage)
+											.referenceIfPossible(ev.message, serverConfig, true)
+											.awaitCheckForReplyErrors()
 							}
 						}
 						return true // Ignorar canais bloqueados (return true = fast break, se está bloqueado o canal no primeiro comando que for executado, os outros obviamente também estarão)
 					}
 				}
 
-				// Cooldown
-				val diff = System.currentTimeMillis() - loritta.userCooldown.getOrDefault(ev.author.idLong, 0L)
-
-				if (1250 > diff && !loritta.config.isOwner(ev.author.id)) { // Tá bom, é alguém tentando floodar, vamos simplesmente ignorar
-					loritta.userCooldown.put(ev.author.idLong, System.currentTimeMillis()) // E vamos guardar o tempo atual
+				// Check if user is banned
+				if (LorittaUtilsKotlin.handleIfBanned(context, lorittaUser.profile))
 					return true
-				}
 
-				var cooldown = command.cooldown
+				// Cooldown
+				var commandCooldown = command.cooldown
 				val donatorPaid = loritta.getActiveMoneyFromDonationsAsync(ev.author.idLong)
 				val guildId = ev.guild?.idLong
 				val guildPaid = guildId?.let { serverConfig.getActiveDonationKeysValue() } ?: 0.0
 
 				val plan = UserPremiumPlans.getPlanFromValue(donatorPaid)
+
 				if (plan.lessCooldown) {
-					cooldown /= 2
+					commandCooldown /= 2
 				}
 
-				if (cooldown > diff && !loritta.config.isOwner(ev.author.id)) {
-					val fancy = DateUtils.formatDateDiff((cooldown - diff) + System.currentTimeMillis(), reparsedLegacyLocale)
+				val (cooldownStatus, cooldownTriggeredAt, cooldown) = loritta.commandCooldownManager.checkCooldown(
+						ev,
+						commandCooldown
+				)
+
+				if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE) {
+					val fancy = DateUtils.formatDateDiff(cooldown + cooldownTriggeredAt, reparsedLegacyLocale)
 					context.reply(
 							LorittaReply(
 									locale["commands.pleaseWaitCooldown", fancy, "\uD83D\uDE45"],
@@ -368,9 +356,7 @@ class CommandManager(loritta: Loritta) {
 							)
 					)
 					return true
-				}
-
-				loritta.userCooldown[ev.author.idLong] = System.currentTimeMillis()
+				} else if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_MESSAGE_ALREADY_SENT) return true
 
 				if (command.hasCommandFeedback()) {
 					// Sending typing status for every single command is costly (API limits!)
@@ -414,23 +400,21 @@ class CommandManager(loritta: Loritta) {
 
 					if (missingPermissions.isNotEmpty()) {
 						// oh no
-						val required = missingPermissions.joinToString(", ", transform = { "`" + reparsedLegacyLocale["LORIPERMISSION_${it.name}"] + "`" })
-						var message = reparsedLegacyLocale["LORIPERMISSION_MissingPermissions", required]
+						val required = missingPermissions.joinToString(", ", transform = { "`" + reparsedLegacyLocale["commands.loriPermission${it.name}"] + "`" })
+						var message = reparsedLegacyLocale["commands.loriMissingPermission", required]
 
 						if (ev.member.hasPermission(Permission.ADMINISTRATOR) || ev.member.hasPermission(Permission.MANAGE_SERVER)) {
-							message += " ${reparsedLegacyLocale["LORIPERMISSION_MissingPermCanConfigure", loritta.instanceConfig.loritta.website.url]}"
+							message += " ${reparsedLegacyLocale["commands.loriMissingPermissionCanConfigure", loritta.instanceConfig.loritta.website.url]}"
 						}
-						ev.textChannel.sendMessage(Constants.ERROR + " **|** ${ev.member.asMention} $message").queue()
+						ev.textChannel.sendMessage(Constants.ERROR + " **|** ${ev.member.asMention} $message")
+								.referenceIfPossible(ev.message, serverConfig, true)
+								.awaitCheckForReplyErrors()
 						return true
 					}
 				}
 
 				if (args.isNotEmpty() && args[0] == "🤷") { // Usar a ajuda caso 🤷 seja usado
 					command.explain(context)
-					return true
-				}
-
-				if (LorittaUtilsKotlin.handleIfBanned(context, lorittaUser.profile)) {
 					return true
 				}
 
@@ -457,7 +441,7 @@ class CommandManager(loritta: Loritta) {
 				}
 
 				if (context.isPrivateChannel && !command.canUseInPrivateChannel()) {
-					context.sendMessage(Constants.ERROR + " **|** " + context.getAsMention(true) + reparsedLegacyLocale["CANT_USE_IN_PRIVATE"])
+					context.sendMessage(Constants.ERROR + " **|** " + context.getAsMention(true) + reparsedLegacyLocale["commands.cantUseInPrivate"])
 					return true
 				}
 
@@ -485,7 +469,7 @@ class CommandManager(loritta: Loritta) {
 						if (hasBadNickname) {
 							context.reply(
 									LorittaReply(
-											reparsedLegacyLocale["LORITTA_BadNickname"],
+											reparsedLegacyLocale["commands.lorittaBadNickname"],
 											"<:lori_triste:370344565967814659>"
 									)
 							)
@@ -498,9 +482,15 @@ class CommandManager(loritta: Loritta) {
 					}
 				}
 
-				loritta.newSuspendedTransaction {
-					lorittaUser.profile.lastCommandSentAt = System.currentTimeMillis()
+				if (ev.guild != null && (LorittaUtils.isGuildOwnerBanned(lorittaUser._profile, ev.guild) || LorittaUtils.isGuildBanned(ev.guild)))
+					return true
 
+				// We don't care about locking the row just to update the sent at field
+				loritta.newSuspendedTransaction(transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED) {
+					lorittaUser.profile.lastCommandSentAt = System.currentTimeMillis()
+				}
+
+				loritta.newSuspendedTransaction {
 					ExecutedCommandsLog.insert {
 						it[userId] = lorittaUser.user.idLong
 						it[ExecutedCommandsLog.guildId] = if (ev.message.isFromGuild) ev.message.guild.idLong else null
@@ -518,7 +508,7 @@ class CommandManager(loritta: Loritta) {
 
 				lorittaShards.updateCachedUserData(context.userHandle)
 
-				command.run(context, context.legacyLocale)
+				command.run(context, context.locale)
 
 				if (!isPrivateChannel && ev.guild != null) {
 					if (ev.guild.selfMember.hasPermission(ev.textChannel!!, Permission.MESSAGE_MANAGE) && (serverConfig.deleteMessageAfterCommand)) {
@@ -529,10 +519,12 @@ class CommandManager(loritta: Loritta) {
 				}
 
 				val end = System.currentTimeMillis()
+				val commandLatency = end - start
+				Prometheus.COMMAND_LATENCY.labels(command::class.simpleName).observe(commandLatency.toDouble())
 				if (ev.message.isFromType(ChannelType.TEXT)) {
-					logger.info("(${ev.message.guild.name} -> ${ev.message.channel.name}) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processado em ${end - start}ms")
+					logger.info("(${ev.message.guild.name} -> ${ev.message.channel.name}) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processed in ${commandLatency}ms")
 				} else {
-					logger.info("(Direct Message) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processado em ${end - start}ms")
+					logger.info("(Direct Message) ${ev.author.name}#${ev.author.discriminator} (${ev.author.id}): ${ev.message.contentDisplay} - OK! Processed in ${commandLatency}ms")
 				}
 				return true
 			} catch (e: Exception) {
@@ -564,7 +556,9 @@ class CommandManager(loritta: Loritta) {
 					reply += " `${e.message!!.escapeMentions()}`"
 
 				if (ev.isFromType(ChannelType.PRIVATE) || (ev.isFromType(ChannelType.TEXT) && ev.textChannel != null && ev.textChannel.canTalk()))
-					ev.channel.sendMessage(reply).queue()
+					ev.channel.sendMessage(reply)
+							.referenceIfPossible(ev.message, serverConfig, true)
+							.awaitCheckForReplyErrors()
 				return true
 			}
 		}

@@ -2,34 +2,34 @@ package com.mrpowergamerbr.loritta.commands.vanilla.administration
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import com.mrpowergamerbr.loritta.utils.*
+import com.mrpowergamerbr.loritta.utils.Constants
+import com.mrpowergamerbr.loritta.utils.LorittaPermission
+import com.mrpowergamerbr.loritta.utils.MessageUtils
+import com.mrpowergamerbr.loritta.utils.escapeMentions
 import com.mrpowergamerbr.loritta.utils.extensions.await
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import com.mrpowergamerbr.loritta.utils.remove
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.TextChannel
+import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
 import net.perfectdreams.loritta.api.messages.LorittaReply
-import java.util.*
 
-class SayCommand : AbstractCommand("say", listOf("falar"), CommandCategory.ADMIN) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["SAY_Description"]
-	}
-
-	override fun getUsage(): String {
-		return "mensagem"
-	}
-
-	override fun getExamples(): List<String> {
-		return Arrays.asList("Eu sou fofa! :3")
+class SayCommand : AbstractCommand("say", listOf("falar"), CommandCategory.MODERATION) {
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.say.description")
+	override fun getExamplesKey()  = LocaleKeyData("commands.command.say.examples")
+	override fun getUsage() = arguments {
+		argument(ArgumentType.TEXT) {}
 	}
 
 	override fun getDiscordPermissions(): List<Permission> {
 		return listOf(Permission.MANAGE_SERVER)
 	}
 
-	override suspend fun run(context: CommandContext, locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext, locale: BaseLocale) {
 		if (context.rawArgs.isNotEmpty()) {
 			var args = context.rawArgs
 			var currentIdx = 0
@@ -84,28 +84,28 @@ class SayCommand : AbstractCommand("say", listOf("falar"), CommandCategory.ADMIN
 			if (channel is TextChannel) { // Caso seja text channel...
 				if (!channel.canTalk()) {
 					context.reply(
-                            LorittaReply(
-                                    locale["SAY_IDontHavePermissionToTalkIn", channel.asMention],
-                                    Constants.ERROR
-                            )
+							LorittaReply(
+									context.locale["commands.command.say.iDontHavePermissionToTalkIn", channel.asMention],
+									Constants.ERROR
+							)
 					)
 					return
 				}
 				if (!channel.canTalk(context.handle)) {
 					context.reply(
-                            LorittaReply(
-                                    locale["SAY_YouDontHavePermissionToTalkIn", channel.asMention],
-                                    Constants.ERROR
-                            )
+							LorittaReply(
+									context.locale["commands.command.say.youDontHavePermissionToTalkIn", channel.asMention],
+									Constants.ERROR
+							)
 					)
 					return
 				}
 				if (context.config.blacklistedChannels.contains(channel.idLong) && !context.lorittaUser.hasPermission(LorittaPermission.BYPASS_COMMAND_BLACKLIST)) {
 					context.reply(
-                            LorittaReply(
-                                    locale["SAY_CommandsCannotBeUsedIn", channel.asMention],
-                                    Constants.ERROR
-                            )
+							LorittaReply(
+									context.locale["commands.command.say.cannotBeUsedIn", channel.asMention],
+									Constants.ERROR
+							)
 					)
 					return
 				}
@@ -116,11 +116,26 @@ class SayCommand : AbstractCommand("say", listOf("falar"), CommandCategory.ADMIN
 			if (!context.isPrivateChannel && !context.handle.hasPermission(channel as TextChannel, Permission.MESSAGE_MENTION_EVERYONE))
 				message = message.escapeMentions()
 
+			// Watermarks the message to "deanonymise" the message, to avoid users reporting Loritta for ToS breaking stuff, even tho it was
+			// a malicious user sending the messages.
+			val watermarkedMessage = MessageUtils.watermarkMessage(
+					message,
+					context.userHandle,
+					context.locale["commands.command.say.messageSentBy"]
+			)
+
 			val discordMessage = try {
 				MessageUtils.generateMessage(
-						message,
-						listOf(context.guild, context.userHandle),
-						context.guild
+						watermarkedMessage,
+						mutableListOf<Any>(context.userHandle)
+								.apply {
+									// If the guild is not null, we add them to the context.
+									// This is needed because "context.event.guild" is null inside a private channel.
+									val guild = context.event.guild
+									if (guild != null)
+										add(guild)
+								},
+						context.event.guild
 				)
 			} catch (e: Exception) {
 				null
@@ -143,10 +158,10 @@ class SayCommand : AbstractCommand("say", listOf("falar"), CommandCategory.ADMIN
 
 			if (context.event.channel != channel && channel is TextChannel)
 				context.reply(
-                        LorittaReply(
-                                locale["SAY_MessageSuccessfullySent", channel.asMention],
-                                "\uD83C\uDF89"
-                        )
+						LorittaReply(
+								context.locale["commands.command.say.messageSuccessfullySent", channel.asMention],
+								"\uD83C\uDF89"
+						)
 				)
 
 		} else {

@@ -2,38 +2,44 @@ package com.mrpowergamerbr.loritta.commands.vanilla.administration
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.api.messages.LorittaReply
+import net.perfectdreams.loritta.utils.Emotes
 
-class QuickPunishmentCommand : AbstractCommand("quickpunishment", category = CommandCategory.ADMIN) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale.toNewLocale()["commands.moderation.quickpunishment.description"]
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf()
-	}
+class QuickPunishmentCommand : AbstractCommand("quickpunishment", category = CommandCategory.MODERATION) {
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.quickpunishment.description")
 
 	override fun canUseInPrivateChannel(): Boolean {
 		return false
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		val userData = context.config.getUserData(context.userHandle.idLong)
 
 		if (userData.quickPunishment) {
 			context.reply(
                     LorittaReply(
-                            message = locale.toNewLocale()["commands.moderation.quickpunishment.disabled"]
-                    )
+                            message = locale["commands.command.quickpunishment.disabled"]
+                    ),
+					LorittaReply(
+						message = locale["commands.command.quickpunishment.howEnable"],
+						prefix = Emotes.LORI_BAN_HAMMER,
+						mentionUser = false
+					)
 			)
 		} else {
 			context.reply(
                     LorittaReply(
-                            message = locale.toNewLocale()["commands.moderation.quickpunishment.enabled"]
-                    )
+                            message = locale["commands.command.quickpunishment.enabled"]
+                    ),
+					LorittaReply(
+						message = locale["commands.command.quickpunishment.howDisable"],
+						prefix = Emotes.LORI_BAN_HAMMER,
+						mentionUser = false
+					)
 			)
 		}
 

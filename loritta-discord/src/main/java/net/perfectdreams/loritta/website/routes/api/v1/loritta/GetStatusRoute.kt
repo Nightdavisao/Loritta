@@ -5,15 +5,15 @@ import com.github.salomonbrys.kotson.jsonObject
 import com.github.salomonbrys.kotson.set
 import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.utils.lorittaShards
-import io.ktor.application.ApplicationCall
+import io.ktor.application.*
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
-import net.perfectdreams.loritta.website.routes.BaseRoute
+import net.perfectdreams.sequins.ktor.BaseRoute
 import net.perfectdreams.loritta.website.utils.extensions.respondJson
 import java.lang.management.ManagementFactory
 import java.util.jar.Attributes
 import java.util.jar.JarFile
 
-class GetStatusRoute(loritta: LorittaDiscord) : BaseRoute(loritta, "/api/v1/loritta/status") {
+class GetStatusRoute(val loritta: LorittaDiscord) : BaseRoute("/api/v1/loritta/status") {
 	override suspend fun onRequest(call: ApplicationCall) {
 		loritta as Loritta
 		val currentShard = loritta.lorittaCluster
@@ -63,6 +63,7 @@ class GetStatusRoute(loritta: LorittaDiscord) : BaseRoute(loritta, "/api/v1/lori
 				"threadCount" to ManagementFactory.getThreadMXBean().threadCount,
 				"globalRateLimitHits" to loritta.bucketedController?.getGlobalRateLimitHitsInTheLastMinute(),
 				"isIgnoringRequests" to loritta.rateLimitChecker.checkIfRequestShouldBeIgnored(),
+				"pendingMessages" to loritta.pendingMessages.size,
 				"minShard" to currentShard.minShard,
 				"maxShard" to currentShard.maxShard,
 				"uptime" to ManagementFactory.getRuntimeMXBean().uptime

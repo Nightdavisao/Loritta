@@ -7,9 +7,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.mrpowergamerbr.loritta.commands.CommandManager
-import com.mrpowergamerbr.loritta.dao.Profile
-import com.mrpowergamerbr.loritta.dao.ProfileSettings
-import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.listeners.*
 import com.mrpowergamerbr.loritta.network.Databases
 import com.mrpowergamerbr.loritta.tables.*
@@ -22,19 +19,15 @@ import com.mrpowergamerbr.loritta.utils.config.GeneralDiscordConfig
 import com.mrpowergamerbr.loritta.utils.config.GeneralDiscordInstanceConfig
 import com.mrpowergamerbr.loritta.utils.config.GeneralInstanceConfig
 import com.mrpowergamerbr.loritta.utils.debug.DebugLog
-import com.mrpowergamerbr.loritta.utils.locale.Gender
 import com.mrpowergamerbr.loritta.website.LorittaWebsite
-import kotlinx.coroutines.*
 import mu.KotlinLogging
 import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder
 import net.dv8tion.jda.api.utils.ChunkingFilter
 import net.dv8tion.jda.api.utils.MemberCachePolicy
 import net.dv8tion.jda.api.utils.cache.CacheFlag
 import net.perfectdreams.loritta.api.platform.PlatformFeature
-import net.perfectdreams.loritta.dao.Payment
 import net.perfectdreams.loritta.platform.discord.DiscordEmoteManager
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
-import net.perfectdreams.loritta.platform.discord.commands.DiscordCommandManager
 import net.perfectdreams.loritta.platform.discord.utils.BucketedController
 import net.perfectdreams.loritta.platform.discord.utils.RateLimitChecker
 import net.perfectdreams.loritta.tables.*
@@ -44,19 +37,14 @@ import net.perfectdreams.loritta.tables.servers.ServerRolePermissions
 import net.perfectdreams.loritta.tables.servers.moduleconfigs.*
 import net.perfectdreams.loritta.twitch.TwitchAPI
 import net.perfectdreams.loritta.utils.*
-import net.perfectdreams.loritta.utils.payments.PaymentReason
-import net.perfectdreams.mercadopago.MercadoPago
+import net.perfectdreams.loritta.utils.metrics.Prometheus
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
 import java.util.*
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -99,11 +87,9 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 	val webhookOkHttpClient = OkHttpClient()
 
 	val legacyCommandManager = CommandManager(this) // Nosso command manager
-	val commandManager = DiscordCommandManager(this)
 	var messageInteractionCache = Caffeine.newBuilder().maximumSize(1000L).expireAfterAccess(3L, TimeUnit.MINUTES).build<Long, MessageInteractionFunctions>().asMap()
 
 	var ignoreIds = mutableSetOf<Long>() // IDs para serem ignorados nesta sessão
-	val userCooldown = Caffeine.newBuilder().expireAfterAccess(30L, TimeUnit.SECONDS).maximumSize(100).build<Long, Long>().asMap()
 	val apiCooldown = Caffeine.newBuilder().expireAfterAccess(30L, TimeUnit.SECONDS).maximumSize(100).build<String, Long>().asMap()
 
 	var discordListener = DiscordListener(this) // Vamos usar a mesma instância para todas as shards
@@ -111,6 +97,7 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 	var messageListener = MessageListener(this)
 	var voiceChannelListener = VoiceChannelListener(this)
 	var channelListener = ChannelListener(this)
+	var discordMetricsListener = DiscordMetricsListener(this)
 	var builder: DefaultShardManagerBuilder
 
 	lateinit var raffleThread: RaffleThread
@@ -134,7 +121,6 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 	var sponsors: List<Sponsor> = listOf()
 	val cachedRetrievedArtists = CacheBuilder.newBuilder().expireAfterWrite(7, TimeUnit.DAYS)
 			.build<Long, Optional<CachedUserInfo>>()
-	val tweetTracker = TweetTracker(this)
 	var bucketedController: BucketedController? = null
 	val rateLimitChecker = RateLimitChecker(this)
 
@@ -179,7 +165,8 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 						eventLogListener,
 						messageListener,
 						voiceChannelListener,
-						channelListener
+						channelListener,
+						discordMetricsListener
 				)
 	}
 
@@ -195,7 +182,10 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 
 	// Inicia a Loritta
 	fun start() {
-		logger.info { "Creating folders..." }
+		logger.info { "Registering Prometheus Collectors..." }
+		Prometheus.register()
+
+		logger.info { "Success! Creating folders..." }
 		File(FOLDER).mkdirs()
 		File(ASSETS).mkdirs()
 		File(TEMP).mkdirs()
@@ -249,11 +239,6 @@ class Loritta(discordConfig: GeneralDiscordConfig, discordInstanceConfig: Genera
 
 		logger.info { "Iniciando bom dia & cia..." }
 		bomDiaECia = BomDiaECia()
-
-		if (loritta.isMaster && config.twitter.enableTweetStream) { // Apenas o cluster principal deve criar a stream, para evitar que tenha várias streams logando ao mesmo tempo (e tomando rate limit)
-			logger.info { "Iniciando streams de tweets..." }
-			tweetTracker.updateStreams()
-		}
 
 		if (loritta.isMaster) {
 			logger.info { "Carregando raffle..." }

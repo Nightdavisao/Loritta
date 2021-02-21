@@ -1,19 +1,13 @@
 package net.perfectdreams.loritta.plugin.rosbife.commands
 
 import net.perfectdreams.loritta.plugin.rosbife.RosbifePlugin
-import net.perfectdreams.loritta.plugin.rosbife.commands.base.BasicSkewedImageCommand
+import net.perfectdreams.loritta.plugin.rosbife.commands.base.GabrielaImageServerCommandBase
 
-class BolsoFrameCommand(m: RosbifePlugin) : BasicSkewedImageCommand(
+class BolsoFrameCommand(m: RosbifePlugin) : GabrielaImageServerCommandBase(
 		m.loritta,
 		listOf("bolsoframe", "bolsonaroframe", "bolsoquadro", "bolsonaroquadro"),
-		"commands.images.bolsoframe.description",
+		1,
+		"commands.command.bolsoframe.description",
+		"/api/v1/images/bolso-frame",
 		"bolsoframe.png",
-		listOf(
-				Corners(
-						314F, 36F,
-						394F, 41F,
-						385F, 156F,
-						301F, 151F
-				)
-		)
 )

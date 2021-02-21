@@ -6,36 +6,33 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.ImageUtils
 import com.mrpowergamerbr.loritta.utils.LorittaUtils
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.utils.ImageFormat
 import net.perfectdreams.loritta.utils.extensions.getEffectiveAvatarUrl
+import net.perfectdreams.loritta.utils.extensions.readImage
 import java.awt.Color
 import java.awt.Font
 import java.awt.Image
 import java.awt.image.BufferedImage
 import java.io.File
 import java.io.IOException
-import javax.imageio.ImageIO
 
 class UndertaleBoxCommand : AbstractCommand("utbox", listOf("undertalebox"), CommandCategory.UNDERTALE) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["UTBOX_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.utbox.description")
 
 	override fun getExamples(): List<String> {
 		return listOf("@Loritta Legendary being made of every SOUL in the underground.")
 	}
 
-	override fun getUsage(): String {
-		return "usuário (caso queira) mensagem"
-	}
+	// TODO: Fix Usage
 
 	override fun needsToUploadFiles(): Boolean {
 		return true
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		try {
 			if (context.args.size >= 1) {
 				var user = context.userHandle
@@ -50,7 +47,7 @@ class UndertaleBoxCommand : AbstractCommand("utbox", listOf("undertalebox"), Com
 				// Mas ok, ainda tem uma coisa chamada "nome do usuário mencionado"
 				// Sabe o que a gente faz com ele? Gambiarra!
 				// TODO: Menos gambiarra
-				val bi = ImageIO.read(File(Loritta.ASSETS + "undertale_dialogbox.png"))
+				val bi = readImage(File(Loritta.ASSETS + "undertale_dialogbox.png"))
 				val graph = bi.graphics
 
 				val determinationMono = Constants.DETERMINATION_MONO

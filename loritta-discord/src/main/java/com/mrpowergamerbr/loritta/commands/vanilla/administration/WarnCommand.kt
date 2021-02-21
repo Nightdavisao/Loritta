@@ -7,46 +7,28 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.dao.Warn
 import com.mrpowergamerbr.loritta.tables.Warns
 import com.mrpowergamerbr.loritta.utils.MessageUtils
-import com.mrpowergamerbr.loritta.utils.convertToEpochMillisRelativeToNow
+import com.mrpowergamerbr.loritta.utils.TimeUtils
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
 import com.mrpowergamerbr.loritta.utils.extensions.retrieveMemberOrNull
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Message
-import net.perfectdreams.loritta.api.commands.ArgumentType
-import net.perfectdreams.loritta.api.commands.CommandArguments
 import net.perfectdreams.loritta.api.commands.CommandCategory
-import net.perfectdreams.loritta.api.commands.arguments
 import net.perfectdreams.loritta.utils.PunishmentAction
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 
-class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.ADMIN) {
+class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.MODERATION) {
 	companion object {
-		private val LOCALE_PREFIX = "commands.moderation"
+		private val LOCALE_PREFIX = "commands.command"
 	}
 
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["WARN_Description"]
-	}
-
-	override fun getUsage(locale: LegacyBaseLocale): CommandArguments {
-		return arguments {
-			argument(ArgumentType.USER) {
-				optional = false
-			}
-			argument(ArgumentType.TEXT) {
-				optional = true
-			}
-		}
-	}
-
-
-	override fun getExamples(): List<String> {
-		return listOf("159985870458322944", "159985870458322944 Algum motivo bastante aleatório")
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.warn.description")
+	override fun getExamplesKey() = AdminUtils.PUNISHMENT_EXAMPLES_KEY
+	override fun getUsage() = AdminUtils.PUNISHMENT_USAGES
 
 	override fun getDiscordPermissions(): List<Permission> {
 		return listOf(Permission.KICK_MEMBERS)
@@ -60,7 +42,7 @@ class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.ADM
 		return listOf(Permission.KICK_MEMBERS, Permission.BAN_MEMBERS)
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val (users, rawReason) = AdminUtils.checkAndRetrieveAllValidUsersFromMessages(context) ?: return
 
@@ -83,7 +65,7 @@ class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.ADM
 					if (!isSilent) {
 						if (settings.sendPunishmentViaDm && context.guild.isMember(user)) {
 							try {
-								val embed = AdminUtils.createPunishmentMessageSentViaDirectMessage(context.guild, locale, context.userHandle, locale["WARN_PunishAction"], reason)
+								val embed = AdminUtils.createPunishmentMessageSentViaDirectMessage(context.guild, locale, context.userHandle, locale["commands.command.warn.punishAction"], reason)
 
 								user.openPrivateChannel().queue {
 									it.sendMessage(embed).queue()
@@ -108,9 +90,9 @@ class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.ADM
 										listOf(user, context.guild),
 										context.guild,
 										mutableMapOf(
-												"duration" to locale.toNewLocale()["$LOCALE_PREFIX.mute.forever"]
+												"duration" to locale["$LOCALE_PREFIX.mute.forever"]
 										) + AdminUtils.getStaffCustomTokens(context.userHandle)
-												+ AdminUtils.getPunishmentCustomTokens(locale.toNewLocale(), reason, "$LOCALE_PREFIX.warn")
+												+ AdminUtils.getPunishmentCustomTokens(locale, reason, "$LOCALE_PREFIX.warn")
 								)
 
 								message?.let {
@@ -135,7 +117,7 @@ class WarnCommand : AbstractCommand("warn", listOf("aviso"), CommandCategory.ADM
 							member != null && punishment.punishmentAction == PunishmentAction.MUTE -> {
 								val metadata = punishment.metadata ?: continue@loop
 								val obj = metadata.obj
-								val time = obj["time"].nullString?.convertToEpochMillisRelativeToNow()
+								val time = obj["time"].nullString?.let { TimeUtils.convertToMillisRelativeToNow(it) }
 								MuteCommand.muteUser(context, settings, member, time, locale, user, reason, isSilent)
 							}
 						}

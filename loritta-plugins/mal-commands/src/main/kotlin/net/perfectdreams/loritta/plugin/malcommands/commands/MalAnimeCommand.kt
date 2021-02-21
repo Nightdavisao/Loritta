@@ -17,17 +17,13 @@ import net.perfectdreams.loritta.plugin.malcommands.utils.AnimeUtils
 import net.perfectdreams.loritta.utils.Emotes
 
 class MalAnimeCommand(val m: MalCommandsPlugin) : DiscordAbstractCommandBase(m.loritta, listOf("malanime", "anime"), CommandCategory.ANIME) {
-    private val LOCALE_PREFIX = "commands.anime.mal.anime"
+    private val LOCALE_PREFIX = "commands.command.malanime"
     private val logger = KotlinLogging.logger { }
     private val maximumIndexAmount = 9 // Used for the maximum amount of indexes on search
 
     override fun command() = create {
         localizedDescription("$LOCALE_PREFIX.description")
-
-        examples {
-            + "Nichijou"
-            + "Pop Team Epic"
-        }
+        localizedExamples("$LOCALE_PREFIX.examples")
 
         usage {
             argument(ArgumentType.TEXT) {}

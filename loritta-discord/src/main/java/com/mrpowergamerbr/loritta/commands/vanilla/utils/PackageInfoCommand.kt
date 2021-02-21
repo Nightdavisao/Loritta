@@ -7,25 +7,24 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.commands.vanilla.utils.PackageInfoCommand.PackageSource.CORREIOS
 import com.mrpowergamerbr.loritta.commands.vanilla.utils.PackageInfoCommand.PackageSource.CTT
 import com.mrpowergamerbr.loritta.utils.Constants
-import net.perfectdreams.loritta.api.messages.LorittaReply
 import com.mrpowergamerbr.loritta.utils.correios.CorreiosResponse
 import com.mrpowergamerbr.loritta.utils.correios.EncomendaResponse
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import net.dv8tion.jda.api.EmbedBuilder
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.messages.LorittaReply
 import java.awt.Color
 import java.util.*
 
 class PackageInfoCommand : AbstractCommand("packageinfo", listOf("correios", "ctt"), CommandCategory.UTILS) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["PACKAGEINFO_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.packageinfo.description")
 
 	override fun getExamples(): List<String> {
 		return Arrays.asList("correios")
 	}
 
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.size == 1) {
 			val packageId = context.args[0]
 			try {
@@ -39,7 +38,7 @@ class PackageInfoCommand : AbstractCommand("packageinfo", listOf("correios", "ct
 				if (pair == null) {
 					context.reply(
 							LorittaReply(
-									message = locale["PACKAGEINFO_COULDNT_FIND", packageId],
+									message = locale["commands.command.packageinfo.couldntFind", packageId],
 									prefix = Constants.ERROR
 							)
 					)
@@ -68,7 +67,7 @@ class PackageInfoCommand : AbstractCommand("packageinfo", listOf("correios", "ct
 			} catch (e: Exception) {
 				context.reply(
 						LorittaReply(
-								message = locale["PACKAGEINFO_INVALID", packageId],
+								message = locale["commands.command.packageinfo.invalid", packageId],
 								prefix = Constants.ERROR
 						)
 				)

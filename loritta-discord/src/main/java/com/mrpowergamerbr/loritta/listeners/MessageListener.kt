@@ -2,7 +2,6 @@ package com.mrpowergamerbr.loritta.listeners
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.mrpowergamerbr.loritta.Loritta
-import com.mrpowergamerbr.loritta.dao.Profile
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
 import com.mrpowergamerbr.loritta.modules.AutoroleModule
@@ -11,11 +10,11 @@ import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.debug.DebugLog
 import com.mrpowergamerbr.loritta.utils.eventlog.EventLog
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
+import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.events.message.MessageDeleteEvent
@@ -28,11 +27,8 @@ import net.perfectdreams.loritta.dao.servers.moduleconfigs.AutoroleConfig
 import net.perfectdreams.loritta.platform.discord.entities.jda.JDAUser
 import net.perfectdreams.loritta.platform.discord.plugin.DiscordPlugin
 import net.perfectdreams.loritta.platform.discord.plugin.LorittaDiscordPlugin
-import net.perfectdreams.loritta.tables.BannedUsers
-import net.perfectdreams.loritta.tables.BlacklistedGuilds
 import net.perfectdreams.loritta.utils.Emotes
 import org.apache.commons.text.similarity.LevenshteinDistance
-import org.jetbrains.exposed.sql.select
 import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
@@ -64,13 +60,13 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 		if (DebugLog.cancelAllEvents)
 			return
 
-		if (event.message.type != MessageType.DEFAULT) // Existem vários tipos de mensagens no Discord, mas apenas estamos interessados nas mensagens padrões de texto
+		if (event.message.type != MessageType.DEFAULT && event.message.type != MessageType.INLINE_REPLY) // Existem vários tipos de mensagens no Discord, mas apenas estamos interessados nas mensagens padrões de texto
 			return
 
 		if (loritta.rateLimitChecker.checkIfRequestShouldBeIgnored())
 			return
 
-		loritta.launchMessageJob {
+		loritta.launchMessageJob(event) {
 			try {
 				val member = event.member
 				if (member == null) { // This may seem dumb, but it works!
@@ -100,11 +96,6 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 				logIfEnabled(enableProfiling) { "Migration Checks took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
 				start = System.nanoTime()
-				// Se o dono do servidor for o usuário que está executando o comando, não é necessário pegar o perfil novamente
-				val ownerProfile = if (event.guild.ownerIdLong == member.idLong) lorittaProfile else loritta.getLorittaProfileAsync(event.guild.ownerIdLong)
-				logIfEnabled(enableProfiling) { "Loading owner's profile took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
-
-				start = System.nanoTime()
 				val currentLocale = loritta.newSuspendedTransaction {
 					(lorittaProfile?.settings?.language ?: serverConfig.localeId)
 				}
@@ -112,12 +103,8 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 				logIfEnabled(enableProfiling) { "Loading ${locale.id} locale took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
 				start = System.nanoTime()
-				val legacyLocale = loritta.getLegacyLocaleById(currentLocale)
-				logIfEnabled(enableProfiling) { "Loading ${legacyLocale.toNewLocale().id} legacy locale took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
-
-				start = System.nanoTime()
 				// We use "loadMemberRolesLorittaPermissions(...)" to avoid unnecessary retrievals later on, because we recheck the role permission later
-				val rolesLorittaPermissions = LorittaUser.loadMemberRolesLorittaPermissions(serverConfig, member)
+				val rolesLorittaPermissions = serverConfig.getOrLoadGuildRolesLorittaPermissions(event.guild)
 				logIfEnabled(enableProfiling) { "Loading Loritta's role permissions in ${event.guild.idLong} took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
 				start = System.nanoTime()
@@ -138,16 +125,6 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 				logIfEnabled(enableProfiling) { "Changing AFK status took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
 				start = System.nanoTime()
-				if (ownerProfile != null && isOwnerBanned(ownerProfile, event.guild))
-					return@launchMessageJob
-				logIfEnabled(enableProfiling) { "Checking for owner profile ban took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
-
-				start = System.nanoTime()
-				if (isGuildBanned(event.guild))
-					return@launchMessageJob
-				logIfEnabled(enableProfiling) { "Checking for guild ban took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
-
-				start = System.nanoTime()
 				EventLog.onMessageReceived(serverConfig, event.message)
 				logIfEnabled(enableProfiling) { "Logging to EventLog took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
@@ -160,7 +137,7 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 					if (chance(25.0))
 						event.message.addReaction("smol_lori_putassa_ping:397748526362132483").queue()
 
-					var response = legacyLocale["MENTION_RESPONSE", member.asMention, serverConfig.commandPrefix]
+					var response = locale["commands.mention.response", member.asMention, serverConfig.commandPrefix]
 
 					if (lorittaUser.hasPermission(LorittaPermission.IGNORE_COMMANDS)) {
 						// Usuário não pode usar comandos
@@ -181,9 +158,9 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 						}
 
 						if (ignoringCommandsRole == event.guild.publicRole)
-							response = legacyLocale["MENTION_ResponseEveryoneBlocked", event.message.author.asMention, serverConfig.commandPrefix]
+							response = locale["commands.mention.responseEveryoneBlocked", event.message.author.asMention, serverConfig.commandPrefix]
 						else
-							response = legacyLocale["MENTION_ResponseRoleBlocked", event.message.author.asMention, serverConfig.commandPrefix, ignoringCommandsRole?.asMention]
+							response = locale["commands.mention.responseRoleBlocked", event.message.author.asMention, serverConfig.commandPrefix, "`${ignoringCommandsRole?.name}`"]
 					} else {
 						if (serverConfig.blacklistedChannels.contains(event.channel.idLong) && !lorittaUser.hasPermission(LorittaPermission.BYPASS_COMMAND_BLACKLIST)) {
 							// Vamos pegar um canal que seja possível usar comandos
@@ -191,18 +168,23 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 
 							response = if (useCommandsIn != null) {
 								// Canal não bloqueado!
-								legacyLocale["MENTION_ResponseBlocked", event.message.author.asMention, serverConfig.commandPrefix, useCommandsIn.asMention]
+								locale["commands.mention.responseBlocked", event.message.author.asMention, serverConfig.commandPrefix, useCommandsIn.asMention]
 							} else {
 								// Nenhum canal disponível...
-								legacyLocale["MENTION_ResponseBlockedNoChannels", event.message.author.asMention, serverConfig.commandPrefix]
+								locale["commands.mention.responseBlockedNoChannels", event.message.author.asMention, serverConfig.commandPrefix]
 							}
 						}
 					}
+
+					val responseBuilder = MessageBuilder()
+						.setAllowedMentions(listOf(Message.MentionType.USER, Message.MentionType.CHANNEL))
+						.setContent("<:loritta:331179879582269451> **|** $response")
+
 					if (event.channel.canTalk()) {
-						event.channel.sendMessage("<:loritta:331179879582269451> **|** $response").queue()
+						event.channel.sendMessage(responseBuilder.build()).queue()
 					} else {
 						event.author.openPrivateChannel().queue {
-							it.sendMessage("<:loritta:331179879582269451> **|** $response").queue()
+							it.sendMessage(responseBuilder.build()).queue()
 						}
 					}
 				}
@@ -218,7 +200,7 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 						event.channel,
 						event.channel,
 						serverConfig,
-						legacyLocale,
+						locale,
 						lorittaUser
 				)
 				logIfEnabled(enableProfiling) { "Creating a LorittaMessageEvent took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
@@ -232,7 +214,7 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 
 				for (module in (MESSAGE_RECEIVED_MODULES + loritta.pluginManager.plugins.filterIsInstance<DiscordPlugin>().flatMap { it.messageReceivedModules } + loritta.pluginManager.plugins.filterIsInstance<LorittaDiscordPlugin>().flatMap { it.messageReceivedModules })) {
 					start = System.nanoTime()
-					if (module.matches(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, legacyLocale) && module.handle(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, legacyLocale))
+					if (module.matches(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, locale) && module.handle(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, locale))
 						return@launchMessageJob
 					logIfEnabled(enableProfiling) { "Executing ${module::class.simpleName} took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 				}
@@ -242,14 +224,9 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 					return@launchMessageJob
 				logIfEnabled(enableProfiling) { "Checking for ignore permission took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
-				start = System.nanoTime()
-				if (lorittaProfile != null && isUserStillBanned(lorittaProfile))
-					return@launchMessageJob
-				logIfEnabled(enableProfiling) { "Checking for user ban took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
-
 				// Executar comandos
 				start = System.nanoTime()
-				if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, legacyLocale, lorittaUser))
+				if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, lorittaUser))
 					return@launchMessageJob
 				logIfEnabled(enableProfiling) { "All commands check took ${System.nanoTime() - start}ns for ${event.author.idLong}" }
 
@@ -279,21 +256,16 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 								.substring(serverConfig.commandPrefix.length)
 
 						val list = mutableListOf(
-                                LorittaReply(
-                                        "${legacyLocale["LORITTA_UnknownCommand", command, "${serverConfig.commandPrefix}${legacyLocale["AJUDA_CommandName"]}"]} ${Emotes.LORI_OWO}",
-                                        "\uD83E\uDD37"
-                                )
+								LorittaReply(
+										"${locale["commands.unknownCommand", command, "${serverConfig.commandPrefix}${locale["commands.helpCommandName"]}"]} ${Emotes.LORI_OWO}",
+										"\uD83E\uDD37"
+								)
 						)
 
 						val allCommandLabels = mutableListOf<String>()
 
 						loritta.commandMap.commands.forEach {
 							if (!it.onlyOwner && !serverConfig.disabledCommands.contains(it.javaClass.simpleName) && !it.hideInHelp)
-								allCommandLabels.addAll(it.labels)
-						}
-
-						loritta.commandManager.commands.forEach {
-							if (!it.onlyOwner && !serverConfig.disabledCommands.contains(it.javaClass.simpleName))
 								allCommandLabels.addAll(it.labels)
 						}
 
@@ -318,11 +290,11 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 
 						if (nearestCommand != null && 6 > diff) {
 							list.add(
-                                    LorittaReply(
-                                            prefix = Emotes.LORI_HM,
-                                            message = locale["commands.didYouMeanCommand", serverConfig.commandPrefix + nearestCommand],
-                                            mentionUser = false
-                                    )
+									LorittaReply(
+											prefix = Emotes.LORI_HM,
+											message = locale["commands.didYouMeanCommand", serverConfig.commandPrefix + nearestCommand],
+											mentionUser = false
+									)
 							)
 						}
 
@@ -346,13 +318,13 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 		if (DebugLog.cancelAllEvents)
 			return
 
-		if (event.message.type != MessageType.DEFAULT) // Existem vários tipos de mensagens no Discord, mas apenas estamos interessados nas mensagens padrões de texto
+		if (event.message.type != MessageType.DEFAULT && event.message.type != MessageType.INLINE_REPLY) // Existem vários tipos de mensagens no Discord, mas apenas estamos interessados nas mensagens padrões de texto
 			return
 
 		if (loritta.rateLimitChecker.checkIfRequestShouldBeIgnored())
 			return
 
-		loritta.launchMessageJob {
+		loritta.launchMessageJob(event) {
 			val serverConfig = loritta.getOrCreateServerConfigAsync(-1, true)
 			val profile = loritta.getOrCreateLorittaProfile(event.author.idLong) // Carregar perfil do usuário
 			val lorittaUser = LorittaUser(event.author, EnumSet.noneOf(LorittaPermission::class.java), profile)
@@ -360,13 +332,9 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 				profile.settings.language ?: "default"
 			}
 			val locale = loritta.getLocaleById(currentLocale)
-			val legacyLocale = loritta.getLegacyLocaleById(currentLocale)
-
-			if (isUserStillBanned(profile))
-				return@launchMessageJob
 
 			if (isMentioningOnlyMe(event.message.contentRaw)) {
-				event.channel.sendMessage(legacyLocale["LORITTA_CommandsInDirectMessage", event.message.author.asMention, legacyLocale["AJUDA_CommandName"]]).queue()
+				event.channel.sendMessage(locale["commands.commandsInDirectMessage", event.message.author.asMention, locale["commands.helpCommandName"]]).queue()
 				return@launchMessageJob
 			}
 
@@ -379,12 +347,12 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 					event.channel,
 					null,
 					serverConfig,
-					legacyLocale,
+					locale,
 					lorittaUser
 			)
 
 			// Executar comandos
-			if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, legacyLocale, lorittaUser))
+			if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, lorittaUser))
 				return@launchMessageJob
 		}
 	}
@@ -418,12 +386,16 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 
 				val serverConfig = loritta.getOrCreateServerConfig(event.guild.idLong, true)
 				val lorittaProfile = loritta.getOrCreateLorittaProfile(event.author.idLong)
-				val legacyLocale = loritta.getLegacyLocaleById(serverConfig.localeId)
 				val locale = loritta.getLocaleById(serverConfig.localeId)
-				val permissions = LorittaUser.loadMemberLorittaPermissions(serverConfig, member)
-				val lorittaUser = GuildLorittaUser(member, permissions, lorittaProfile)
+				val lorittaUser = GuildLorittaUser(
+						member,
+						LorittaUser.convertRolePermissionsMapToMemberPermissionList(
+								member,
+								serverConfig.getOrLoadGuildRolesLorittaPermissions(event.guild)
+						),
+						lorittaProfile)
 
-				EventLog.onMessageUpdate(serverConfig, legacyLocale, event.message)
+				EventLog.onMessageUpdate(serverConfig, locale, event.message)
 
 				val lorittaMessageEvent = LorittaMessageEvent(
 						event.author,
@@ -434,16 +406,16 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 						event.channel,
 						event.channel,
 						serverConfig,
-						legacyLocale,
+						locale,
 						lorittaUser
 				)
 
 				for (module in (MESSAGE_EDITED_MODULES + loritta.pluginManager.plugins.filterIsInstance<DiscordPlugin>().flatMap { it.messageEditedModules } + loritta.pluginManager.plugins.filterIsInstance<LorittaDiscordPlugin>().flatMap { it.messageEditedModules })) {
-					if (module.matches(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, legacyLocale) && module.handle(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, legacyLocale))
+					if (module.matches(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, locale) && module.handle(lorittaMessageEvent, lorittaUser, lorittaProfile, serverConfig, locale))
 						return@launch
 				}
 
-				if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, legacyLocale, lorittaUser))
+				if (checkCommandsAndDispatch(lorittaMessageEvent, serverConfig, locale, lorittaUser))
 					return@launch
 			}
 		}
@@ -458,7 +430,7 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 	 *
 	 * @return if a command was dispatched
 	 */
-	suspend fun checkCommandsAndDispatch(lorittaMessageEvent: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, legacyLocale: LegacyBaseLocale, lorittaUser: LorittaUser): Boolean {
+	suspend fun checkCommandsAndDispatch(lorittaMessageEvent: LorittaMessageEvent, serverConfig: ServerConfig, locale: BaseLocale, lorittaUser: LorittaUser): Boolean {
 		// If Loritta can't speak in the current channel, do *NOT* try to process a command! If we try to process, Loritta will have issues that she wants to talk in a channel, but she doesn't have the "canTalk()" permission!
 		if (lorittaMessageEvent.channel is TextChannel && !lorittaMessageEvent.channel.canTalk())
 			return false
@@ -496,17 +468,12 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 
 			// Executar comandos
 			var start = System.nanoTime()
-			if (loritta.commandMap.dispatch(lorittaMessageEvent, rawArguments, serverConfig, locale, legacyLocale, lorittaUser))
+			if (loritta.commandMap.dispatch(lorittaMessageEvent, rawArguments, serverConfig, locale, lorittaUser))
 				return true
 			logIfEnabled(enableProfiling) { "Checking for command map commands took ${System.nanoTime() - start}ns for ${author.idLong}" }
 
 			start = System.nanoTime()
-			if (loritta.commandManager.dispatch(lorittaMessageEvent, rawArguments, serverConfig, locale, legacyLocale, lorittaUser))
-				return true
-			logIfEnabled(enableProfiling) { "Checking for command manager commands took ${System.nanoTime() - start}ns for ${author.idLong}" }
-
-			start = System.nanoTime()
-			if (loritta.legacyCommandManager.matches(lorittaMessageEvent, rawArguments, serverConfig, locale, legacyLocale, lorittaUser))
+			if (loritta.legacyCommandManager.matches(lorittaMessageEvent, rawArguments, serverConfig, locale, lorittaUser))
 				return true
 			logIfEnabled(enableProfiling) { "Checking for legacy command manager commands took ${System.nanoTime() - start}ns for ${author.idLong}" }
 		}
@@ -521,71 +488,6 @@ class MessageListener(val loritta: Loritta) : ListenerAdapter() {
 	 * @returns if the message is mentioning only me
 	 */
 	fun isMentioningOnlyMe(contentRaw: String): Boolean = contentRaw.replace("!", "").trim() == "<@${loritta.discordConfig.discord.clientId}>"
-
-	/**
-	 * Checks if the owner of the guild is banned and, if true, makes me quit the server
-	 *
-	 * @param ownerProfile the profile of the guild's owner
-	 * @param guild        the guild
-	 * @return if the owner of the guild is banned
-	 */
-	suspend fun isOwnerBanned(ownerProfile: Profile, guild: Guild): Boolean {
-		val bannedState = ownerProfile.getBannedState()
-
-		if (bannedState != null && bannedState[BannedUsers.expiresAt] == null) { // Se o dono está banido e não é um ban temporário...
-			if (!loritta.config.isOwner(ownerProfile.userId)) { // E ele não é o dono do bot!
-				logger.info("Eu estou saindo do servidor ${guild.name} (${guild.id}) já que o dono ${ownerProfile.userId} está banido de me usar! ᕙ(⇀‸↼‶)ᕗ")
-				guild.leave().queue() // Então eu irei sair daqui, me recuso a ficar em um servidor que o dono está banido! ᕙ(⇀‸↼‶)ᕗ
-				return true
-			}
-		}
-		return false
-	}
-
-	/**
-	 * Checks if the guild is blacklisted and, if yes, makes me quit the server
-	 *
-	 * @param guild        the guild
-	 * @return if the owner of the guild is banned
-	 */
-	private suspend fun isGuildBanned(guild: Guild): Boolean {
-		val blacklisted = loritta.newSuspendedTransaction {
-			BlacklistedGuilds.select {
-				BlacklistedGuilds.id eq guild.idLong
-			}.firstOrNull()
-		}
-
-		if (blacklisted != null) { // Se o servidor está banido...
-			if (!loritta.config.isOwner(guild.owner!!.user.id)) { // E ele não é o dono do bot!
-				logger.info("Eu estou saindo do servidor ${guild.name} (${guild.id}) já que o servidor está banido de me usar! ᕙ(⇀‸↼‶)ᕗ *${blacklisted[BlacklistedGuilds.reason]}")
-				guild.leave().queue() // Então eu irei sair daqui, me recuso a ficar em um servidor que o dono está banido! ᕙ(⇀‸↼‶)ᕗ
-				return true
-			}
-		}
-		return false
-	}
-
-	/**
-	 * Checks if the user is still banned, if not, remove it from the ignore list
-	 *
-	 * @param profile the profile of the user
-	 * @return if the user is still banned
-	 */
-	suspend fun isUserStillBanned(profile: Profile): Boolean {
-		val bannedState = profile.getBannedState()
-
-		if (loritta.ignoreIds.contains(profile.userId)) { // Se o usuário está sendo ignorado...
-			if (bannedState != null) { // E ele ainda está banido...
-				logger.info { "${profile.id} tried to use me, but they are banned! >:)" }
-				return true // Então flw galerinha
-			} else {
-				// Se não, vamos remover ele da lista do ignoreIds
-				loritta.ignoreIds.remove(profile.userId)
-				return false
-			}
-		}
-		return false
-	}
 
 	fun logIfEnabled(doLog: Boolean, msg: () -> Any?) {
 		if (doLog)

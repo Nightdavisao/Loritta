@@ -25,7 +25,6 @@ import net.perfectdreams.spicymorenitta.application.ApplicationCall
 import net.perfectdreams.spicymorenitta.routes.*
 import net.perfectdreams.spicymorenitta.routes.guilds.dashboard.*
 import net.perfectdreams.spicymorenitta.routes.user.dashboard.*
-import net.perfectdreams.spicymorenitta.trunfo.TrunfoGame
 import net.perfectdreams.spicymorenitta.utils.*
 import org.w3c.dom.*
 import kotlin.collections.set
@@ -161,9 +160,6 @@ class SpicyMorenitta : Logging {
 
 		ErrorTracker.start(this)
 
-		// Workaround for KotlinJS's DCE
-		DoNotRemoveDeadCodeWorkaround.methodRefs
-
 		info("HELLO FROM KOTLIN 1.4.10!")
 		info("SpicyMorenitta :3")
 		info("Howdy, my name is Loritta!")
@@ -174,11 +170,6 @@ class SpicyMorenitta : Logging {
 
 		if (window.location.pathname == "/auth") { // Nós não precisamos processar o resto do código apenas para verificar o popup de auth
 			AuthUtils.handlePopup()
-			return
-		}
-
-		if (false) {
-			TrunfoGame.start()
 			return
 		}
 
@@ -232,8 +223,8 @@ class SpicyMorenitta : Logging {
 				if (currentRoute.requiresLocales) {
 					deferred[0].await()
 
-					debug("Locale test: ${locale["commands.images.drawnword.description"]}")
-					debug("Locale test: ${locale["commands.fun.ship.bribeLove", ":3"]}")
+					debug("Locale test: ${locale["commands.command.drawnword.description"]}")
+					debug("Locale test: ${locale["commands.command.ship.bribeLove", ":3"]}")
 				}
 				if (currentRoute.requiresUserIdentification)
 					deferred[1].await()
@@ -241,6 +232,7 @@ class SpicyMorenitta : Logging {
 				onPageChange(window.location.pathname, null)
 
 				GoogleAdSense.renderAds()
+				NitroPay.renderAds()
 
 				AdvertisementUtils.checkIfUserIsBlockingAds()
 
@@ -276,6 +268,9 @@ class SpicyMorenitta : Logging {
 		Moment.locale(momentLocaleId)
 	}
 
+	/**
+	 * Requests the logged in user via "/api/v1/users/@me" and calls [updateLoggedInUser] if the request succeeds.
+	 */
 	suspend fun loadLoggedInUser() {
 		val httpResponse = http.get<HttpResponse>("${window.location.origin}/api/v1/users/@me")
 		val payload = httpResponse.readText()
@@ -289,6 +284,13 @@ class SpicyMorenitta : Logging {
 		}
 	}
 
+	/**
+	 * Updates the current user identification with the [newUser]
+	 *
+	 * This updates the login button (switches to the user login) and sets the [userIdentification] to the [newUser]
+	 *
+	 * @param newUser the logged in user identification
+	 */
 	fun updateLoggedInUser(newUser: UserIdentification) {
 		userIdentification = newUser
 		debug("New user is $newUser")
@@ -598,6 +600,11 @@ class SpicyMorenitta : Logging {
 		debug("Redirect buttons added!")
 	}
 
+	/**
+	 * Checks and, if needed, shows or hides the hamburger button if any of the entries are overflowing to the next line.
+	 *
+	 * This should be called every time when the navbar is updated with new entries, or if a entry changes size. (example: [updateLoggedInUser])
+	 */
 	fun checkAndFixNavbarOverflownEntries() {
 		val leftSidebar = document.select<HTMLDivElement>(".left-side-entries")
 		val hamburgerButton = document.select<HTMLDivElement>("#hamburger-menu-button")
@@ -795,7 +802,7 @@ class SpicyMorenitta : Logging {
 	}
 
 	fun showLoadingScreen(text: String = "${locale["loritta.loading"]}...") {
-		document.select<HTMLDivElement>("#loading-screen").apply {
+		document.select<HTMLDivElement?>("#loading-screen")?.apply {
 			select<HTMLDivElement>(".loading-text").apply {
 				textContent = text
 			}
@@ -804,7 +811,7 @@ class SpicyMorenitta : Logging {
 	}
 
 	fun hideLoadingScreen() {
-		document.select<HTMLDivElement>("#loading-screen").apply {
+		document.select<HTMLDivElement?>("#loading-screen")?.apply {
 			style.opacity = "0"
 		}
 	}

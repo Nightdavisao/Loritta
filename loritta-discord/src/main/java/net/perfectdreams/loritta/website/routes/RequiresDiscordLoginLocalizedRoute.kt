@@ -23,10 +23,16 @@ import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.tables.BannedUsers
 import net.perfectdreams.loritta.tables.BlacklistedGuilds
 import net.perfectdreams.loritta.utils.DiscordUtils
+import net.perfectdreams.loritta.utils.Emotes
 import net.perfectdreams.loritta.website.session.LorittaJsonWebSession
 import net.perfectdreams.loritta.website.utils.ScriptingUtils
 import net.perfectdreams.loritta.website.utils.WebsiteUtils
-import net.perfectdreams.loritta.website.utils.extensions.*
+import net.perfectdreams.loritta.website.utils.extensions.hostFromHeader
+import net.perfectdreams.loritta.website.utils.extensions.lorittaSession
+import net.perfectdreams.loritta.website.utils.extensions.redirect
+import net.perfectdreams.loritta.website.utils.extensions.respondHtml
+import net.perfectdreams.loritta.website.utils.extensions.toJson
+import net.perfectdreams.loritta.website.utils.extensions.toWebSessionIdentification
 import net.perfectdreams.temmiediscordauth.TemmieDiscordAuth
 import org.jetbrains.exposed.sql.select
 import java.io.File
@@ -162,7 +168,7 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 							val serverConfig = com.mrpowergamerbr.loritta.utils.loritta.getOrCreateServerConfig(guild.idLong)
 
 							// Agora nós iremos pegar o locale do servidor
-							val locale = com.mrpowergamerbr.loritta.utils.loritta.getLegacyLocaleById(serverConfig.localeId)
+							val locale = com.mrpowergamerbr.loritta.utils.loritta.getLocaleById(serverConfig.localeId)
 
 							val userId = userIdentification.id
 
@@ -185,7 +191,7 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 											val blacklistedReason = blacklisted[BlacklistedGuilds.reason]
 
 											// Envie via DM uma mensagem falando sobre o motivo do ban
-											val message = locale["LORITTA_BlacklistedServer", blacklistedReason]
+											val message = locale["website.router.blacklistedServer", blacklistedReason]
 
 											user.openPrivateChannel().queue {
 												it.sendMessage(message).queue({
@@ -205,8 +211,8 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 											val bannedState = profile?.getBannedState()
 											if (bannedState != null) { // Dono blacklisted
 												// Envie via DM uma mensagem falando sobre a Loritta!
-												val message = locale["LORITTA_OwnerLorittaBanned", guild.owner?.user?.asMention, bannedState[BannedUsers.reason]
-														?: "???"]
+												val message = locale.getList("website.router.ownerLorittaBanned", guild.owner?.user?.asMention, bannedState[BannedUsers.reason]
+														?: "???").joinToString("\n")
 
 												user.openPrivateChannel().queue {
 													it.sendMessage(message).queue({
@@ -219,7 +225,25 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 											}
 
 											// Envie via DM uma mensagem falando sobre a Loritta!
-											val message = locale["LORITTA_ADDED_ON_SERVER", user.asMention, guild.name, com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "dashboard", locale["LORITTA_SupportServerInvite"], com.mrpowergamerbr.loritta.utils.loritta.legacyCommandManager.commandMap.size + com.mrpowergamerbr.loritta.utils.loritta.commandManager.commands.size, "${com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url}donate"]
+											val message = locale.getList(
+													"website.router.addedOnServer",
+													user.asMention,
+													guild.name,
+													com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "commands",
+													com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "guild/${guild.id}/configure/",
+													com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "guidelines",
+													com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "donate",
+													com.mrpowergamerbr.loritta.utils.loritta.instanceConfig.loritta.website.url + "support",
+													Emotes.LORI_PAT,
+													Emotes.LORI_NICE,
+													Emotes.LORI_HEART,
+													Emotes.LORI_COFFEE,
+													Emotes.LORI_SMILE,
+													Emotes.LORI_PRAY,
+													Emotes.LORI_BAN_HAMMER,
+													Emotes.LORI_RICH,
+													Emotes.LORI_HEART1.toString() + Emotes.LORI_HEART2.toString()
+											).joinToString("\n")
 
 											user.openPrivateChannel().queue {
 												it.sendMessage(message).queue()

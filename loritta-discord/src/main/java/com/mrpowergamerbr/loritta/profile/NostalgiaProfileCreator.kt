@@ -4,12 +4,12 @@ import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.dao.GuildProfile
 import com.mrpowergamerbr.loritta.dao.Profile
 import com.mrpowergamerbr.loritta.tables.GuildProfiles
-import com.mrpowergamerbr.loritta.tables.Profiles
 import com.mrpowergamerbr.loritta.tables.Reputations
 import com.mrpowergamerbr.loritta.utils.*
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
-import kotlinx.coroutines.runBlocking
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
 import net.dv8tion.jda.api.entities.Guild
+import net.perfectdreams.loritta.profile.ProfileUtils
+import net.perfectdreams.loritta.utils.extensions.readImage
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import java.awt.Color
@@ -18,11 +18,20 @@ import java.awt.Rectangle
 import java.awt.image.BufferedImage
 import java.io.File
 import java.io.FileInputStream
-import javax.imageio.ImageIO
 
-class NostalgiaProfileCreator : ProfileCreator("defaultDark") {
-	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild??, badges: List<BufferedImage>, locale: LegacyBaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
-		val profileWrapper = ImageIO.read(File(Loritta.ASSETS, "profile/nostalgia/profile_wrapper.png"))
+open class NostalgiaProfileCreator(internalName: String, val folderName: String) : ProfileCreator(internalName) {
+	class NostalgiaDarkProfileCreator : NostalgiaProfileCreator("defaultDark", "dark")
+	class NostalgiaBlurpleProfileCreator : NostalgiaProfileCreator("defaultBlurple", "blurple")
+	class NostalgiaRedProfileCreator : NostalgiaProfileCreator("defaultRed", "red")
+	class NostalgiaBlueProfileCreator : NostalgiaProfileCreator("defaultBlue", "blue")
+	class NostalgiaGreenProfileCreator : NostalgiaProfileCreator("defaultGreen", "green")
+	class NostalgiaPurpleProfileCreator : NostalgiaProfileCreator("defaultPurple", "purple")
+	class NostalgiaPinkProfileCreator : NostalgiaProfileCreator("defaultPink", "pink")
+	class NostalgiaYellowProfileCreator : NostalgiaProfileCreator("defaultYellow", "yellow")
+	class NostalgiaOrangeProfileCreator : NostalgiaProfileCreator("defaultOrange", "orange")
+
+	override suspend fun create(sender: ProfileUserInfoData, user: ProfileUserInfoData, userProfile: Profile, guild: Guild?, badges: List<BufferedImage>, locale: BaseLocale, background: BufferedImage, aboutMe: String): BufferedImage {
+		val profileWrapper = readImage(File(Loritta.ASSETS, "profile/nostalgia/profile_wrapper_$folderName.png"))
 
 		val base = BufferedImage(800, 600, BufferedImage.TYPE_INT_ARGB) // Base
 		val graphics = base.graphics.enableFontAntiAliasing()
@@ -51,7 +60,7 @@ class NostalgiaProfileCreator : ProfileCreator("defaultDark") {
 		graphics.font = oswaldRegular42
 		ImageUtils.drawCenteredString(graphics, "${reputations} reps", Rectangle(598, 54, 202, 54), oswaldRegular42)
 		graphics.font = oswaldRegular29
-		ImageUtils.drawCenteredString(graphics, locale.toNewLocale()["profile.aboutMe"], Rectangle(0, 465, 132, 38), oswaldRegular29)
+		ImageUtils.drawCenteredString(graphics, locale["profile.aboutMe"], Rectangle(0, 465, 132, 38), oswaldRegular29)
 
 		var x = 162
 		for (badge in badges) {
@@ -83,23 +92,18 @@ class NostalgiaProfileCreator : ProfileCreator("defaultDark") {
 		graphics.font = whitneyBold20
 		graphics.drawText("Global", 159, 21 + shiftY, 800 - 6)
 		graphics.font = whitneySemiBold20
-		val globalPosition = loritta.newSuspendedTransaction {
-			Profiles.select { Profiles.xp greaterEq userProfile.xp }.count()
-		}
-		graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 159, 39  + shiftY, 800 - 6)
+		val globalPosition = ProfileUtils.getGlobalExperiencePosition(userProfile)
+		if (globalPosition != null)
+			graphics.drawText("#$globalPosition / ${userProfile.xp} XP", 159, 39  + shiftY, 800 - 6)
+		else
+			graphics.drawText("${userProfile.xp} XP", 159, 39  + shiftY, 800 - 6)
 
 		if (guild != null) {
 			val localProfile = loritta.newSuspendedTransaction {
 				GuildProfile.find { (GuildProfiles.guildId eq guild.idLong) and (GuildProfiles.userId eq user.id) }.firstOrNull()
 			}
 
-			val localPosition = if (localProfile != null) {
-				loritta.newSuspendedTransaction {
-					GuildProfiles.select { (GuildProfiles.guildId eq guild.idLong) and (GuildProfiles.xp greaterEq localProfile.xp) }.count()
-				}
-			} else {
-				null
-			}
+			val localPosition = ProfileUtils.getLocalExperiencePosition(localProfile)
 
 			val xpLocal = localProfile?.xp
 
@@ -107,20 +111,25 @@ class NostalgiaProfileCreator : ProfileCreator("defaultDark") {
 			graphics.drawText(guild.name, 159, 61 + shiftY, 800 - 6)
 			graphics.font = whitneySemiBold20
 			if (xpLocal != null) {
-				graphics.drawText("#$localPosition / $xpLocal XP", 159, 78 + shiftY, 800 - 6)
+				if (localPosition != null)
+					graphics.drawText("#$localPosition / $xpLocal XP", 159, 78 + shiftY, 800 - 6)
+				else
+					graphics.drawText("$xpLocal XP", 159, 78 + shiftY, 800 - 6)
 			} else {
 				graphics.drawText("???", 159, 78 + shiftY, 800 - 6)
 			}
 		}
 
-		val globalEconomyPosition = loritta.newSuspendedTransaction {
-			Profiles.select { Profiles.money greaterEq userProfile.money }.count()
-		}
+		val globalEconomyPosition = ProfileUtils.getGlobalEconomyPosition(userProfile)
 
 		graphics.font = whitneyBold20
 		graphics.drawText("Sonhos", 159, 98  + shiftY, 800 - 6)
 		graphics.font = whitneySemiBold20
-		graphics.drawText("#$globalEconomyPosition / ${userProfile.money}", 159, 116  + shiftY, 800 - 6)
+		if (globalEconomyPosition != null)
+			graphics.drawText("#$globalEconomyPosition / ${userProfile.money}", 159, 116  + shiftY, 800 - 6)
+		else
+			graphics.drawText("${userProfile.money}", 159, 116  + shiftY, 800 - 6)
+
 		val marriage = loritta.newSuspendedTransaction { userProfile.marriage }
 
 		if (marriage != null) {
@@ -130,15 +139,15 @@ class NostalgiaProfileCreator : ProfileCreator("defaultDark") {
 				marriage.user1
 			}.toString()
 
-			val marrySection = ImageIO.read(File(Loritta.ASSETS, "profile/nostalgia/marry.png"))
+			val marrySection = readImage(File(Loritta.ASSETS, "profile/nostalgia/marry.png"))
 			graphics.drawImage(marrySection, 0, 0, null)
-			val marriedWith = runBlocking { lorittaShards.retrieveUserInfoById(marriedWithId.toLong()) }
+			val marriedWith = lorittaShards.retrieveUserInfoById(marriedWithId.toLong())
 
 			if (marriedWith != null) {
 				val whitneySemiBold16 = whitneySemiBold.deriveFont(16f)
 				val whitneyMedium20 = whitneyMedium22.deriveFont(20f)
 				graphics.font = whitneySemiBold16
-				ImageUtils.drawCenteredString(graphics, locale.toNewLocale()["profile.marriedWith"], Rectangle(545, 108, 256, 14), whitneySemiBold16)
+				ImageUtils.drawCenteredString(graphics, locale["profile.marriedWith"], Rectangle(545, 108, 256, 14), whitneySemiBold16)
 				graphics.font = whitneyMedium20
 				ImageUtils.drawCenteredString(graphics, marriedWith.name + "#" + marriedWith.discriminator, Rectangle(545, 108 + 14, 256, 18), whitneyMedium20)
 				graphics.font = whitneySemiBold16

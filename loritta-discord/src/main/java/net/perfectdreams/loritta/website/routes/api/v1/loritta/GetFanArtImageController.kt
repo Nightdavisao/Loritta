@@ -1,20 +1,21 @@
 package net.perfectdreams.loritta.website.routes.api.v1.loritta
 
 import com.mrpowergamerbr.loritta.Loritta
-import io.ktor.application.ApplicationCall
-import io.ktor.http.ContentType
-import io.ktor.response.respondBytes
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.response.*
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.utils.SimpleImageInfo
+import net.perfectdreams.loritta.utils.extensions.readImage
 import net.perfectdreams.loritta.website.LorittaWebsite
-import net.perfectdreams.loritta.website.routes.BaseRoute
+import net.perfectdreams.sequins.ktor.BaseRoute
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
 
-class GetFanArtImageController(loritta: LorittaDiscord) : BaseRoute(loritta, "/api/v1/loritta/fan-art/{artist}/{art-name}/image") {
+class GetFanArtImageController(val loritta: LorittaDiscord) : BaseRoute("/api/v1/loritta/fan-art/{artist}/{art-name}/image") {
 	override suspend fun onRequest(call: ApplicationCall) {
 		val artistName = call.parameters["artist"]
 		val artName = call.parameters["art-name"]
@@ -43,7 +44,7 @@ class GetFanArtImageController(loritta: LorittaDiscord) : BaseRoute(loritta, "/a
 					)
 				} else {
 					// Try to load the image to compress it to jpg
-					val fanArtImage = ImageIO.read(fanArtFile)
+					val fanArtImage = readImage(fanArtFile)
 
 					val targetHeight = when (size) {
 						"small" -> 256

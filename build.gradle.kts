@@ -5,9 +5,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 // val ktorVersion by lazy { ext["ktor-version"] as String }
 val loriVersion   = "2020-SNAPSHOT"
 val kotlinVersion = "1.4.10"
-val ktorVersion   = "1.3.1"
-val jdaVersion    = "4.2.0_204"
-val kotlinSerialization = "1.0.0"
+val ktorVersion   = "1.5.0"
+val jdaVersion    = "4.2.0_221"
+val kotlinSerialization = "1.0.1"
+val kotlinCoroutines = "1.4.1"
 
 println("Compiling Loritta $loriVersion")
 println("Kotlin Version: $kotlinVersion")
@@ -23,6 +24,7 @@ allprojects {
         set("ktor-version", ktorVersion)
         set("jda-version", jdaVersion)
         set("kotlin-serialization", kotlinSerialization)
+        set("kotlin-coroutines", kotlinCoroutines)
         set(
                 "fat-jar-stuff",
                 fun(mainClass: String, customAttributes: Map<String, String>): Task {
@@ -61,18 +63,28 @@ allprojects {
                         // libs.deleteRecursively()
                         libs.mkdirs()
 
+                        // Add any required dependencies inside the JAR
                         from(configurations.runtimeClasspath.get().mapNotNull {
                             if (addToFinalJarSourceProjects.any { sourceName -> it.name.startsWith(sourceName) }) {
                                 zipTree(it)
-                            } else {
-                                val output = File(libs, it.name)
-
-                                if (it.exists() && !output.exists() && it.extension == "jar")
-                                    it.copyTo(output, true)
-
-                                null
-                            }
+                            } else null
                         })
+
+                        doLast {
+                            // Only copy the libs in a "doLast"
+                            // doLast means that this won't be executed when loading the build.gradle.kts
+                            // (Yes, by default Gradle will run everything in this task block, even if you are compiling a unrelated project)
+                            // Very strange...
+                            from(configurations.runtimeClasspath.get().mapNotNull {
+                                if (!addToFinalJarSourceProjects.any { sourceName -> it.name.startsWith(sourceName) }) {
+                                    val output = File(libs, it.name)
+
+                                    if (it.exists() && !output.exists() && it.extension == "jar")
+                                        it.copyTo(output, true)
+                                }
+                                null
+                            })
+                        }
 
                         with(tasks.jar.get() as CopySpec)
                     }
@@ -122,8 +134,8 @@ publishing {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_14
+    targetCompatibility = JavaVersion.VERSION_14
 }
 
 subprojects {

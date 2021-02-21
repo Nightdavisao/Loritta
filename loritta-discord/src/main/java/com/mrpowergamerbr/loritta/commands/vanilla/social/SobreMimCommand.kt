@@ -2,27 +2,29 @@ package com.mrpowergamerbr.loritta.commands.vanilla.social
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
+import net.perfectdreams.loritta.api.commands.ArgumentType
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.commands.arguments
 
 class SobreMimCommand : AbstractCommand("aboutme", listOf("sobremim"), CommandCategory.SOCIAL) {
-    override fun getUsage(): String {
-        return "<nova mensagem>"
+    override fun getDescriptionKey() = LocaleKeyData("commands.command.aboutme.description")
+    override fun getExamplesKey() = LocaleKeyData("commands.command.aboutme.examples")
+
+    override fun getUsage() = arguments {
+        argument(ArgumentType.TEXT) {}
     }
 
-    override fun getDescription(locale: LegacyBaseLocale): String {
-        return locale["SOBREMIM_DESCRIPTION"]
-    }
-
-    override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+    override suspend fun run(context: CommandContext, locale: BaseLocale) {
         val settings = loritta.newSuspendedTransaction { context.lorittaUser.profile.settings }
         if (context.args.isNotEmpty()) {
             loritta.newSuspendedTransaction {
 	            settings.aboutMe = context.args.joinToString(" ")
             }
 
-            context.sendMessage(context.getAsMention(true) + context.legacyLocale["SOBREMIM_CHANGED", settings.aboutMe])
+            context.sendMessage(context.getAsMention(true) + context.locale["commands.command.aboutme.changed", settings.aboutMe])
         } else {
             this.explain(context)
         }

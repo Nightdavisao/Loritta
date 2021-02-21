@@ -5,7 +5,8 @@ import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.lorittaShards
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
@@ -23,11 +24,9 @@ import java.util.jar.Attributes
 import java.util.jar.JarFile
 
 class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinfo", category = CommandCategory.DISCORD) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale.toNewLocale()["commands.discord.botinfo.description"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.botinfo.description")
 
-	override suspend fun run(context: CommandContext, locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext, locale: BaseLocale) {
 		val arg0 = context.rawArgs.getOrNull(0)
 		if (arg0 == "extended" || arg0 == "more" || arg0 == "mais" || arg0 == "extendedinfo") {
 			showExtendedInfo(context, locale)
@@ -64,15 +63,15 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
 			}.count()
 		}
 
-		embed.setAuthor("${locale["BOTINFO_TITLE"]} 💁", loritta.instanceConfig.loritta.website.url, "${loritta.instanceConfig.loritta.website.url}assets/img/loritta_gabizinha_v1.png")
+		embed.setAuthor("${context.locale["commands.command.botinfo.title"]} 💁", loritta.instanceConfig.loritta.website.url, "${loritta.instanceConfig.loritta.website.url}assets/img/loritta_gabizinha_v1.png")
 		embed.setThumbnail("${loritta.instanceConfig.loritta.website.url}assets/img/loritta_gabizinha_v1.png")
 		embed.setColor(Color(0, 193, 223))
 		embed.setDescription(
 				context.locale.getList(
-						"commands.discord.botinfo.embedDescription",
+						"commands.command.botinfo.embedDescription",
 						guildCount,
 						sb.toString(),
-						LorittaLauncher.loritta.legacyCommandManager.commandMap.size + loritta.commandManager.commands.size + loritta.commandMap.commands.size,
+						LorittaLauncher.loritta.legacyCommandManager.commandMap.size + loritta.commandMap.commands.size,
 						commandsExecutedInTheLast24Hours,
 						Emotes.KOTLIN,
 						Emotes.JDA,
@@ -82,10 +81,11 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
 				).joinToString("\n\n")
 		)
 
-		embed.addField("\uD83C\uDF80 ${context.legacyLocale["WEBSITE_DONATE"]}", "${loritta.instanceConfig.loritta.website.url}donate", true)
-		embed.addField("<:loritta:331179879582269451> ${context.legacyLocale["WEBSITE_ADD_ME"]}", "${loritta.instanceConfig.loritta.website.url}dashboard", true)
-		embed.addField("<:lori_ok_hand:426183783008698391> ${context.legacyLocale["WEBSITE_COMMANDS"]}", "${loritta.instanceConfig.loritta.website.url}commands", true)
-		embed.addField("\uD83D\uDC81 ${context.legacyLocale["WEBSITE_Support"]}", "${loritta.instanceConfig.loritta.website.url}support", true)
+		embed.addField("\uD83C\uDF80 ${context.locale["website.donate.title"]}", "${loritta.instanceConfig.loritta.website.url}donate", true)
+		embed.addField("<:loritta:331179879582269451> ${context.locale["website.jumbotron.addMe"]}", "${loritta.instanceConfig.loritta.website.url}dashboard", true)
+		embed.addField("<:lori_ok_hand:426183783008698391> ${context.locale["modules.sectionNames.commands"]}", "${loritta.instanceConfig.loritta.website.url}commands", true)
+		embed.addField("\uD83D\uDC81 ${context.locale["website.support.title"]}", "${loritta.instanceConfig.loritta.website.url}support", true)
+		embed.addField(locale["commands.command.botinfo.crowdin"], loritta.config.crowdin.url, true)
 		embed.addField("<:twitter:552840901886738433> Twitter", "[@LorittaBot](https://twitter.com/LorittaBot)", true)
 		embed.addField("<:instagram:552841049660325908> Instagram", "[@lorittabot](https://instagram.com/lorittabot/)", true)
 
@@ -97,9 +97,9 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
 		}
 
 		embed.addField(
-				"\uD83C\uDFC5 ${locale["BOTINFO_HONORABLE_MENTIONS"]}",
-				locale.toNewLocale().getList(
-						"commands.discord.botinfo.honorableMentions",
+				"\uD83C\uDFC5 ${locale["commands.command.botinfo.honorableMentionsTitle"]}",
+				locale.getList(
+						"commands.command.botinfo.honorableMentions",
 						numberOfUniqueDonators,
 						loritta.fanArtArtists.size,
 						context.userHandle.asMention,
@@ -112,7 +112,8 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
 				false
 		)
 
-		embed.setFooter("${locale["BOTINFO_CREATEDBY"]} - https://mrpowergamerbr.com/", lorittaShards.retrieveUserById(123170274651668480L)!!.effectiveAvatarUrl)
+		embed.setFooter("${locale["commands.command.botinfo.lorittaCreatedBy"]} - https://mrpowergamerbr.com/", lorittaShards.retrieveUserById(123170274651668480L)!!.effectiveAvatarUrl)
+
 		val message = context.sendMessage(context.getAsMention(true), embed.build())
 
 		message.onReactionAddByAuthor(context) {
@@ -126,7 +127,7 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
 		message.addReaction("loritta:331179879582269451").queue()
 	}
 
-	suspend fun showExtendedInfo(context: CommandContext, locale: LegacyBaseLocale) {
+	suspend fun showExtendedInfo(context: CommandContext, locale: BaseLocale) {
 		val path = this::class.java.protectionDomain.codeSource.location.path
 		val jar = JarFile(path)
 		val mf = jar.manifest
@@ -155,12 +156,12 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
                         prefix = "<:loritta:331179879582269451>"
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_LorittaVersion"]}:** $lorittaVersion",
+                        "**${locale["commands.command.botinfo.lorittaVersion"]}:** $lorittaVersion",
                         "\uD83D\uDD16",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_BuildNumber"]}:** #$buildNumber <$buildURL>",
+                        "**${locale["commands.command.botinfo.buildNumber"]}:** #$buildNumber <$buildURL>",
                         "\uD83C\uDFD7",
                         mentionUser = false
                 ),
@@ -175,57 +176,57 @@ class BotInfoCommand(private val buildInfo: BuildInfo) : AbstractCommand("botinf
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_CompiledAt"]}:** $compiledAt",
+                        "**${locale["commands.command.botinfo.compiledAt"]}:** $compiledAt",
                         "⏰",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_JavaVersion"]}:** ${System.getProperty("java.version")}",
+                        "**${locale["commands.command.botinfo.javaVersion"]}:** ${System.getProperty("java.version")}",
                         "<:java:467443707160035329>",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_KotlinVersion"]}:** $kotlinVersion",
+                        "**${locale["commands.command.botinfo.kotlinVersion"]}:** $kotlinVersion",
                         "<:kotlin:453714186925637642>",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_JDAVersion"]}:** $jdaVersion",
+                        "**${locale["commands.command.botinfo.jdaVersion"]}:** $jdaVersion",
                         "<:jda:411518264267767818>",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_MemoryUsed"]}:** $usedMemory MB",
+                        "**${locale["commands.command.botinfo.memoryUsed"]}:** $usedMemory MB",
                         "\uD83D\uDCBB",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_MemoryAvailable"]}:** $freeMemory MB",
+                        "**${locale["commands.command.botinfo.memoryAvailable"]}:** $freeMemory MB",
                         "\uD83D\uDCBB",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_MemoryAllocated"]}:** $totalMemory MB",
+                        "**${locale["commands.command.botinfo.memoryAllocated"]}:** $totalMemory MB",
                         "\uD83D\uDCBB",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_MemoryTotal"]}:** $maxMemory MB",
+                        "**${locale["commands.command.botinfo.memoryTotal"]}:** $maxMemory MB",
                         "\uD83D\uDCBB",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_ThreadCount"]}:** ${ManagementFactory.getThreadMXBean().threadCount}",
+                        "**${locale["commands.command.botinfo.threadCount"]}:** ${ManagementFactory.getThreadMXBean().threadCount}",
                         "\uD83D\uDC4B",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["BOTINFO_Environment"]}:** ${loritta.config.loritta.environment.name}",
+                        "**${locale["commands.command.botinfo.environment"]}:** ${loritta.config.loritta.environment.name}",
                         "\uD83C\uDF43",
                         mentionUser = false
                 ),
                 LorittaReply(
-                        "**${locale["DASHBOARD_Love"]}:** ∞",
+                        "**${locale["commands.command.botinfo.love"]}:** ∞",
                         "<:blobheart:467447056374693889>",
                         mentionUser = false
                 )

@@ -2,30 +2,22 @@ package com.mrpowergamerbr.loritta.commands.vanilla.`fun`
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import net.perfectdreams.loritta.api.messages.LorittaReply
-import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
+import com.mrpowergamerbr.loritta.utils.escapeMentions
+import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
 import net.perfectdreams.loritta.api.commands.CommandCategory
+import net.perfectdreams.loritta.api.messages.LorittaReply
 
 class QualidadeCommand : AbstractCommand("qualidade", category = CommandCategory.FUN) {
-	override fun getDescription(locale: LegacyBaseLocale): String {
-		return locale["QUALIDADE_DESCRIPTION"]
-	}
+	override fun getDescriptionKey() = LocaleKeyData("commands.command.quality.description")
+	override fun getExamplesKey() = LocaleKeyData("commands.command.quality.examples")
+	// TODO: Fix Usage
+	// TODO: Fix Detailed Usage
 
-	override fun getUsage(): String {
-		return "<mensagem>"
-	}
-
-	override fun getExamples(): List<String> {
-		return listOf("qualidade & sincronia")
-	}
-
-	override fun getDetailedUsage(): Map<String, String> {
-		return mapOf("mensagem" to "A mensagem que você deseja transformar")
-	}
-
-	override suspend fun run(context: CommandContext,locale: LegacyBaseLocale) {
+	override suspend fun run(context: CommandContext,locale: BaseLocale) {
 		if (context.args.isNotEmpty()) {
 			val qualidade = context.args.joinToString(" ").toCharArray().joinToString(" ").toUpperCase()
+					.escapeMentions()
 			context.reply(
                     LorittaReply(message = qualidade, prefix = "✍")
 			)

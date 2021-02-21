@@ -7,9 +7,6 @@ import com.mrpowergamerbr.loritta.dao.ServerConfig
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.User
-import net.perfectdreams.loritta.api.commands.LorittaCommandContext
-import net.perfectdreams.loritta.platform.discord.commands.LorittaDiscordCommand
-import net.perfectdreams.loritta.platform.discord.entities.DiscordCommandContext
 import net.perfectdreams.loritta.tables.servers.ServerRolePermissions
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
@@ -89,7 +86,13 @@ open class LorittaUser(val user: User, val permissions: EnumSet<LorittaPermissio
 
 			roles.sortByDescending { it.position }
 
-			enumSet.addAll(rolePermissions.values.flatten())
+			enumSet.addAll(
+					// We need to filter the permissions to only add the permissions from the roles that the user *does* have.
+					// loadMemberRolesLorittaPermissions(...) does filter that for us, but loadGuildRolesLorittaPermissions(...) doesn't!
+					rolePermissions.filterKeys { roleId ->
+						roles.any { it.idLong == roleId }
+					}.values.flatten()
+			)
 
 			// The "IGNORE_COMMANDS" permission check is kinda... tricky
 			// We check if all the roles the user has the IGNORE_COMMANDS, if any of them doesn't have it, we ignore it.
@@ -146,21 +149,6 @@ open class LorittaUser(val user: User, val permissions: EnumSet<LorittaPermissio
 
 		return true
 	}
-
-	/**
-	 * Verifica se o usuário tem permissão para utilizar um comando
-	 */
-	open fun canUseCommand(context: LorittaCommandContext): Boolean {
-		if (context !is DiscordCommandContext)
-			throw UnsupportedOperationException("I don't know how to handle a $context yet!")
-
-		// A coisa mais importante a se verificar é se o comando só pode ser executado pelo dono (para não causar problemas)
-		if (context.command.onlyOwner && !loritta.config.isOwner(context.userHandle.id)) {
-			return false
-		}
-
-		return true
-	}
 }
 
 /**
@@ -180,21 +168,5 @@ class GuildLorittaUser(val member: Member, permissions: EnumSet<LorittaPermissio
 		}
 
 		return false
-	}
-
-	/**
-	 * Verifica se o usuário tem permissão para utilizar um comando
-	 */
-	override fun canUseCommand(context: LorittaCommandContext): Boolean {
-		if (!super.canUseCommand(context))
-			return false
-
-		if (context is DiscordCommandContext && context.command is LorittaDiscordCommand) {
-			// E, finalmente, iremos verificar as permissões do usuário
-			if (!member.hasPermission(context.event.textChannel!!, context.command.discordPermissions))
-				return false
-		}
-
-		return true
 	}
 }

@@ -4,9 +4,12 @@ import com.mrpowergamerbr.loritta.listeners.EventLogListener
 import com.mrpowergamerbr.loritta.modules.InviteLinkModule
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.lorittaShards
+import kotlinx.coroutines.debug.DebugProbes
 import mu.KotlinLogging
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.website.LorittaWebsite
+import java.io.File
+import java.io.PrintStream
 import java.lang.management.ManagementFactory
 import java.util.concurrent.ThreadPoolExecutor
 import kotlin.concurrent.thread
@@ -24,7 +27,7 @@ object DebugLog {
 		thread {
 			commandLoop@ while (true) {
 				try {
-					val line = readLine()!!
+					val line = readLine() ?: continue
 					handleLine(line)
 				} catch (e: Exception) {
 					e.printStackTrace()
@@ -52,7 +55,6 @@ object DebugLog {
 		logger.info("messageInteractionCache.size: ${loritta.messageInteractionCache.size}")
 		logger.info("locales.size: ${loritta.legacyLocales.size}")
 		logger.info("ignoreIds.size: ${loritta.ignoreIds.size}")
-		logger.info("userCooldown.size: ${loritta.userCooldown.size}")
 		logger.info("> Tasks Stuff")
 		logger.info("loritta.twitch.cachedGames: ${loritta.twitch.cachedGames.size}")
 		logger.info("loritta.twitch.cachedStreamerInfo: ${loritta.twitch.cachedStreamerInfo.size}")
@@ -71,6 +73,17 @@ object DebugLog {
 		logger.info("Pending Messages ($pendingMessagesSize): Active: ${loritta.pendingMessages.filter { it.isActive }.count()}; Cancelled: ${loritta.pendingMessages.filter { it.isCancelled }.count()}; Complete: ${loritta.pendingMessages.filter { it.isCompleted }.count()};")
 		if (isMessagesOverloaded)
 			logger.warn { "Loritta is overloaded! There are $pendingMessagesSize messages pending to be executed, ${pendingMessagesSize - availableProcessors} more than it should be!" }
+	}
+
+	fun dumpCoroutinesToFile() {
+		println("Dumping Coroutines...")
+		DebugProbes.dumpCoroutines(
+				PrintStream(
+						File("coroutines_dump.txt")
+								.outputStream()
+				)
+		)
+		println("Coroutines dumped!")
 	}
 
 	fun handleLine(line: String) {
@@ -118,6 +131,9 @@ object DebugLog {
 			}
 			"posts" -> {
 				LorittaWebsite.INSTANCE.blog.posts = LorittaWebsite.INSTANCE.blog.loadAllBlogPosts()
+			}
+			"dumpc" -> {
+				dumpCoroutinesToFile()
 			}
 		}
 	}

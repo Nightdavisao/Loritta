@@ -1,8 +1,18 @@
 package net.perfectdreams.loritta.sweetmorenitta.views
 
 import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import kotlinx.html.*
+import kotlinx.html.HEAD
+import kotlinx.html.HTML
+import kotlinx.html.ScriptType
+import kotlinx.html.head
+import kotlinx.html.html
+import kotlinx.html.link
+import kotlinx.html.meta
+import kotlinx.html.script
 import kotlinx.html.stream.appendHTML
+import kotlinx.html.styleLink
+import kotlinx.html.title
+import kotlinx.html.unsafe
 import net.perfectdreams.loritta.website.LorittaWebsite
 import net.perfectdreams.loritta.website.utils.WebsiteAssetsHashes
 
@@ -66,11 +76,7 @@ window.addEventListener('load', function () {
                 }
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
 
-
-                if (false && com.mrpowergamerbr.loritta.LorittaLauncher.loritta.config.loritta.environment == com.mrpowergamerbr.loritta.utils.config.EnvironmentType.CANARY)
-                    styleLink("${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/css/style.css?v12345")
-                else
-                    styleLink("${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/css/style.css?hash=${assetHash("assets/css/style.css")}")
+                styleLink("${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/css/style.css?hash=${assetHash("assets/css/style.css")}")
 
                 styleLink("https://use.fontawesome.com/releases/v5.8.1/css/all.css")
 
@@ -86,37 +92,29 @@ window.addEventListener('load', function () {
                 // Detect AdBlock
                 script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/adsbygoogle.js") {}
 
-                if (false && com.mrpowergamerbr.loritta.LorittaLauncher.loritta.config.loritta.environment == com.mrpowergamerbr.loritta.utils.config.EnvironmentType.CANARY) {
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/jquery-3.2.1.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/countUp.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/showdown.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/tingle.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/autosize.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/toastr.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/select2.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/moment-with-locales.min.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlin.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlinx-coroutines-core.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlinx-serialization-runtime-js.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlinx-html-js.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlinx-io.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-io.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlinx-coroutines-io.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-utils.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-http.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-http-cio.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-client-core.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/ktor-ktor-client-js.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/kotlin-logging.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/loritta-parent-loritta-api.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/spicy-morenitta.js?hash=${assetHash("assets/js/spicy-morenitta.js")}") {}
-                } else {
-                    // App itself
-                    script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/app.js?hash=${assetHash("assets/js/app.js")}") {}
-                }
+                // App itself
+                script(src = "${LorittaWebsite.INSTANCE.config.websiteUrl}$versionPrefix/assets/js/app.js?hash=${assetHash("assets/js/app.js")}") {}
 
+                // Google AdSense
                 script(src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js") {}
+
+                // Google ReCAPTCHA
                 script(src = "https://www.google.com/recaptcha/api.js?render=explicit&onload=onGoogleRecaptchaLoadCallback") {}
+
+                // NitroPay
+                unsafe {
+                    raw("""
+<script type="text/javascript">
+  window["nitroAds"] = window["nitroAds"] || {
+    createAd: function() {
+      window.nitroAds.queue.push(["createAd", arguments]);
+    },
+    queue: []
+  };
+</script>
+<script async src="https://s.nitropay.com/ads-595.js"></script>
+                    """.trimIndent())
+                }
 
                 for ((websiteLocaleId, localeName) in listOf("br" to "pt-BR", "us" to "en", "es" to "es", "pt" to "pt")) {
                     link {
