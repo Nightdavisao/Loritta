@@ -2,27 +2,38 @@ package net.perfectdreams.loritta.plugin.malcommands.utils
 
 import com.github.kevinsawicki.http.HttpRequest
 import com.github.salomonbrys.kotson.*
-import com.google.gson.JsonParser
-import com.mrpowergamerbr.loritta.utils.encodeToUrl
+import com.google.gson.GsonBuilder
 import mu.KotlinLogging
 import net.perfectdreams.loritta.plugin.malcommands.models.*
-import net.perfectdreams.loritta.plugin.malcommands.utils.MalConstants.MAL_URL
 
 object AnimeUtils {
     private val logger = KotlinLogging.logger { }
+    private val animeFields = listOf(
+        "alternative_titles",
+        "media_type",
+        "num_episodes",
+        "status",
+        "start_date",
+        "end_date",
+        "average_episode_duration",
+        "synopsis",
+        "mean",
+        "genres",
+        "rank",
+        "popularity",
+        "num_list_users",
+        "num_favorites",
+        "favorites_info",
+        "num_scoring_users",
+        "start_season",
+        "broadcast",
+        "my_list_status{start_date,finish_date}",
+        "nsfw",
+        "created_at",
+        "updated_at"
+    )
 
-    private fun getAnimeTypeEnum(type: String?): AnimeType? {
-        return when (type?.toLowerCase()) {
-            "tv" -> AnimeType.TV
-            "ona" -> AnimeType.ONA
-            "movie" -> AnimeType.MOVIE
-            "ova" -> AnimeType.OVA
-            "special" -> AnimeType.SPECIAL
-            else -> null
-        }
-    }
-
-    fun getEmoteForAnimeType(type: AnimeType): String {
+    fun getEmoteForAnimeType(type: AnimeType?): String {
         return when (type) {
             AnimeType.MOVIE, AnimeType.OVA -> "\uD83C\uDFA5"
             AnimeType.ONA -> "\uD83D\uDDA5️"
@@ -31,70 +42,28 @@ object AnimeUtils {
         }
     }
 
-    fun queryAnime(query: String): List<PartialAnime> {
-        val response = HttpRequest.get(
-                "${MAL_URL}search/prefix.json?type=anime&keyword=${query.encodeToUrl()}&v=1"
-        ).body()
-        val parsed = JsonParser.parseString(response)
-
-        return parsed.obj["categories"].array[0].obj["items"].array.map {
-            val jsonObject = it.obj
-            PartialAnime(
-                    jsonObject["id"].int,
-                    jsonObject["name"].string,
-                    getAnimeTypeEnum(jsonObject.obj["payload"].obj["media_type"].string.toLowerCase()),
-                    jsonObject["url"].string
-            )
-        }
-    }
-
-    fun parseAnime(url: String): MalAnime? {
-        val document = ScrappingUtils.requestDocument(url)!!
-
-        val animeInfo = AnimeInfo(
-                name = document.selectFirst(".title-name").text().trim(),
-                type = getAnimeTypeEnum(document.findElementByString("span", "Type:")
-                        ?.nextElementSibling()
-                        ?.text()
-                        ?.trim()),
-                status = when (document.findElementByString("span", "Status:")
-                        ?.nextSiblingString()?.toLowerCase()) {
-                    "finished airing" -> AnimeStatus.FINISHED_AIRING
-                    "currently airing" -> AnimeStatus.CURRENTLY_AIRING
-                    "not yet aired" -> AnimeStatus.NOT_YET_AIRED
-                    else -> null
-                },
-                aired = document.findElementByString("span", "Aired:")
-                        ?.nextSiblingString(),
-                duration = document.findElementByString("span", "Duration:")
-                        ?.nextSiblingString(),
-                episodes = document.findElementByString("span", "Episodes:")
-                        ?.nextSiblingString()
-                        ?.toIntOrNull(),
-                source = document.findElementByString("span", "Source:")
-                        ?.nextSiblingString(),
-                genres = document.select("span[itemprop=\"genre\"]").map { it.text() }
+    fun queryAnime(query: String): List<Anime> {
+        val requestHeaders = mapOf(
+            // fun fact: client id is hardcoded in resource strings from Android app
+            "x-mal-client-id" to "df368c0b8286b739ee77f0b905960700",
+            "user-agent" to "MAL (android, 1.0.8)",
+            "cache-control" to "public, max-age=60"
         )
-
-        logger.info { animeInfo.type }
-
-        return MalAnime(
-                info = animeInfo,
-                image = document
-                        .selectFirst("img[itemprop=\"image\"][alt=\"${animeInfo.name}\"]")
-                        .attr("data-src"),
-                score = document.selectFirst(".score-label")
-                        .text()
-                        ?.toFloatOrNull(),
-                synopsis = document.selectFirst("p[itemprop=\"description\"]")
-                        .preservedText(),
-                rank = document.findElementByString("span", "Ranked:")
-                        ?.nextSiblingString()
-                        ?.asMalRank(),
-                popularity = document.findElementByString("span", "Popularity:")
-                        ?.nextSiblingString()
-                        ?.asMalRank()
+        val request = HttpRequest.get(
+            "https://api.myanimelist.net/v3/anime", true,
+            "q", query,
+            "limit", "10", // default is 30
+            "offset", "0",
+            "fields", animeFields.joinToString(","),
         )
+            .acceptGzipEncoding()
+            .headers(requestHeaders)
+
+        val body = request.body()
+        logger.debug { body }
+
+        val gsonBuilder = GsonBuilder().create()
+        return gsonBuilder.fromJson<AnimeQueryData>(body).data
     }
 
 }
