@@ -14,7 +14,6 @@ import net.perfectdreams.loritta.website.routes.HomeRoute
 import net.perfectdreams.loritta.website.routes.SponsorsRoute
 import net.perfectdreams.loritta.website.routes.SupportRoute
 import net.perfectdreams.loritta.website.routes.TermsOfServiceRoute
-import net.perfectdreams.loritta.website.routes.TranslateRoute
 import net.perfectdreams.loritta.website.routes.api.v1.callbacks.CreateWebhookRoute
 import net.perfectdreams.loritta.website.routes.api.v1.callbacks.GetPubSubHubbubCallbackRoute
 import net.perfectdreams.loritta.website.routes.api.v1.callbacks.PostDiscordBotsCallbackRoute
@@ -24,7 +23,6 @@ import net.perfectdreams.loritta.website.routes.api.v1.economy.GetBundlesRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.GetDailyShopRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.GetLoriDailyRewardRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.GetLoriDailyRewardStatusRoute
-import net.perfectdreams.loritta.website.routes.api.v1.economy.GetPaymentsLeaderboardRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.PostBundlesRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.PostBuyDailyShopItemRoute
 import net.perfectdreams.loritta.website.routes.api.v1.economy.PostTransferBalanceExternalRoute
@@ -116,7 +114,6 @@ object DefaultRoutes {
 			FanArtArtistRoute(loritta),
 			FanArtsRoute(loritta),
 			SponsorsRoute(loritta),
-			TranslateRoute(loritta),
 			ExtrasRoute(loritta),
 			ExtrasViewerRoute(loritta),
 			SponsorsRedirectRoute(loritta),
@@ -181,7 +178,6 @@ object DefaultRoutes {
 			PostBundlesRoute(loritta),
 			GetDailyShopRoute(loritta),
 			PostBuyDailyShopItemRoute(loritta),
-			GetPaymentsLeaderboardRoute(loritta),
 
 			// Guild
 			GetGuildInfoRoute(loritta),

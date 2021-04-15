@@ -25,7 +25,9 @@ import com.mrpowergamerbr.loritta.utils.extensions.await
 import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
 import com.mrpowergamerbr.loritta.utils.extensions.localized
 import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.utils.locale.LocaleStringData
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.ChannelType
@@ -112,7 +114,6 @@ class CommandManager(loritta: Loritta) {
 		commandMap.add(EscolherCommand())
 		commandMap.add(LanguageCommand())
 		commandMap.add(PatreonCommand())
-		commandMap.add(DiscordBotListCommand())
 
 		// =======[ SOCIAL ]======
 		commandMap.add(PerfilCommand())
@@ -287,11 +288,11 @@ class CommandManager(loritta: Loritta) {
 			var reparsedLegacyLocale = locale
 			if (!isPrivateChannel) { // TODO: Migrar isto para que seja customizável
 				when (ev.channel.id) {
-					"414839559721975818" -> reparsedLegacyLocale = loritta.getLocaleById("default") // português (default)
-					"404713176995987466" -> reparsedLegacyLocale = loritta.getLocaleById("en-us") // inglês
-					"414847180285935622" -> reparsedLegacyLocale = loritta.getLocaleById("es-es") // espanhol
-					"414847291669872661" -> reparsedLegacyLocale = loritta.getLocaleById("pt-pt") // português de portugal
-					"414847379670564874" -> reparsedLegacyLocale = loritta.getLocaleById("pt-funk") // português funk
+					"414839559721975818" -> reparsedLegacyLocale = loritta.localeManager.getLocaleById("default") // português (default)
+					"404713176995987466" -> reparsedLegacyLocale = loritta.localeManager.getLocaleById("en-us") // inglês
+					"414847180285935622" -> reparsedLegacyLocale = loritta.localeManager.getLocaleById("es-es") // espanhol
+					"414847291669872661" -> reparsedLegacyLocale = loritta.localeManager.getLocaleById("pt-pt") // português de portugal
+					"414847379670564874" -> reparsedLegacyLocale = loritta.localeManager.getLocaleById("pt-funk") // português funk
 				}
 			}
 
@@ -347,13 +348,34 @@ class CommandManager(loritta: Loritta) {
 						commandCooldown
 				)
 
-				if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE) {
-					val fancy = DateUtils.formatDateDiff(cooldown + cooldownTriggeredAt, reparsedLegacyLocale)
-					context.reply(
-							LorittaReply(
-									locale["commands.pleaseWaitCooldown", fancy, "\uD83D\uDE45"],
-									"\uD83D\uDD25"
+				if (cooldownStatus.sendMessage) {
+					val fancy = DateUtils.formatDateDiff(cooldown + cooldownTriggeredAt, locale)
+
+					val key = when (cooldownStatus) {
+						CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE ->
+							LocaleKeyData(
+								"commands.pleaseWaitCooldown",
+								listOf(
+									LocaleStringData(fancy),
+									LocaleStringData("\uD83D\uDE45")
+								)
 							)
+						CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE_REPEATED ->
+							LocaleKeyData(
+								"commands.pleaseWaitCooldownRepeated",
+								listOf(
+									LocaleStringData(fancy),
+									LocaleStringData(Emotes.LORI_HMPF.toString())
+								)
+							)
+						else -> throw IllegalArgumentException("Invalid Cooldown Status $cooldownStatus, marked as send but there isn't any locale keys related to it!")
+					}
+
+					context.reply(
+						LorittaReply(
+							locale[key],
+							"\uD83D\uDD25"
+						)
 					)
 					return true
 				} else if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_MESSAGE_ALREADY_SENT) return true

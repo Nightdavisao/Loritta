@@ -11,7 +11,7 @@ import com.mrpowergamerbr.loritta.dao.Profile
 import com.mrpowergamerbr.loritta.dao.ProfileDesign
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.network.Databases
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import com.mrpowergamerbr.loritta.utils.locale.LegacyBaseLocale
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.lorittaShards
@@ -23,8 +23,13 @@ import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
 import io.ktor.util.*
-import kotlinx.html.*
+import kotlinx.html.body
+import kotlinx.html.head
+import kotlinx.html.html
+import kotlinx.html.meta
+import kotlinx.html.p
 import kotlinx.html.stream.createHTML
+import kotlinx.html.title
 import net.dv8tion.jda.api.entities.Guild
 import net.dv8tion.jda.api.entities.User
 import net.perfectdreams.loritta.dao.servers.moduleconfigs.ReactionOption
@@ -106,15 +111,6 @@ object WebsiteUtils {
 		)
 	}
 
-	fun transformProfileToJson(profile: Profile): JsonObject {
-		// TODO: É necessário alterar o frontend para usar os novos valores
-		val jsonObject = JsonObject()
-		jsonObject["userId"] = profile.id.value
-		jsonObject["money"] = profile.money
-		jsonObject["dreams"] = profile.money // Deprecated
-		return jsonObject
-	}
-
 	fun getDiscordCrawlerAuthenticationPage(): String {
 		return createHTML().html {
 			head {
@@ -186,7 +182,7 @@ object WebsiteUtils {
 		val split = pathNoLanguageCode.split("/").toMutableList()
 		val languageCode2 = split.getOrNull(1)
 
-		val hasLangCode = loritta.locales.any { it.value["website.localePath"] == languageCode2 }
+		val hasLangCode = loritta.localeManager.locales.any { it.value["website.localePath"] == languageCode2 }
 		if (hasLangCode) {
 			split.removeAt(0)
 			split.removeAt(0)

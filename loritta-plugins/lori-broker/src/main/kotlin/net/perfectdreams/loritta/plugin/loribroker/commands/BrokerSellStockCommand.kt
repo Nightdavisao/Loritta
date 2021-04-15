@@ -13,7 +13,10 @@ import net.perfectdreams.loritta.api.messages.LorittaReply
 import net.perfectdreams.loritta.platform.discord.commands.DiscordAbstractCommandBase
 import net.perfectdreams.loritta.plugin.loribroker.LoriBrokerPlugin
 import net.perfectdreams.loritta.plugin.loribroker.tables.BoughtStocks
-import net.perfectdreams.loritta.utils.*
+import net.perfectdreams.loritta.utils.Emotes
+import net.perfectdreams.loritta.utils.GenericReplies
+import net.perfectdreams.loritta.utils.NumberUtils
+import net.perfectdreams.loritta.utils.SonhosPaymentReason
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.select
@@ -90,25 +93,33 @@ class BrokerSellStockCommand(val plugin: LoriBrokerPlugin) : DiscordAbstractComm
 				
 				val totalEarnings = howMuchWillBePaidToTheUser - stocksThatWillBeSold.sumByLong { it[BoughtStocks.price] }
 
-				loritta.newSuspendedTransaction {
-					// To avoid selling "phantom" stocks, we need to check if the user has enough stocks inside the transaction
-					// If the stock value changed, then it means that the user bought (or sold!) stocks while this transaction was being executed
-					val canBeExecuted = BoughtStocks.select {
-						BoughtStocks.user eq user.idLong and (BoughtStocks.ticker eq tickerId)
-					}.count() == selfStocks.size.toLong()
+				// The reason we batch the stocks in multiple transactions is due to this issue:
+				// https://github.com/LorittaBot/Loritta/issues/2343
+				// https://stackoverflow.com/questions/49274390/postgresql-and-hibernate-java-io-ioexception-tried-to-send-an-out-of-range-inte
+				stocksThatWillBeSold.chunked(32767).forEachIndexed { index, chunkedStocks ->
+					loritta.newSuspendedTransaction {
+						// To avoid selling "phantom" stocks, we need to check if the user has enough stocks inside the transaction
+						// If the stock value changed, then it means that the user bought (or sold!) stocks while this transaction was being executed
+						//
+						// When checking for the bought stocks, we need to subtract the "already removed" chunked stocks
+						val canBeExecuted = BoughtStocks.select {
+							BoughtStocks.user eq user.idLong and (BoughtStocks.ticker eq tickerId)
+						}.count() == (selfStocks.size.toLong() - (index * 32767))
 
-					if (!canBeExecuted)
-						fail(locale["commands.command.brokersell.boughtStocksWhileSelling"])
+						if (!canBeExecuted)
+							fail(locale["commands.command.brokersell.boughtStocksWhileSelling"])
 
-					BoughtStocks.deleteWhere {
-						BoughtStocks.id inList stocksThatWillBeSold.map { it[BoughtStocks.id] }
+						BoughtStocks.deleteWhere {
+							BoughtStocks.id inList chunkedStocks.map { it[BoughtStocks.id] }
+						}
 					}
+				}
 
-					lorittaUser.profile.addSonhosNested(howMuchWillBePaidToTheUser)
-					PaymentUtils.addToTransactionLogNested(
-							howMuchWillBePaidToTheUser,
-							SonhosPaymentReason.STOCKS,
-							receivedBy = user.idLong
+				// We add the sonhos in a separate transaction because we don't wanna to add them within that loop above
+				loritta.newSuspendedTransaction {
+					lorittaUser.profile.addSonhosAndAddToTransactionLogNested(
+						howMuchWillBePaidToTheUser,
+						SonhosPaymentReason.STOCKS
 					)
 				}
 

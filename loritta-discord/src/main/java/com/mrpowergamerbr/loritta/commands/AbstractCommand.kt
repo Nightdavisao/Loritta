@@ -4,9 +4,9 @@ import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.LorittaPermission
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
 import com.mrpowergamerbr.loritta.utils.extensions.localized
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
-import com.mrpowergamerbr.loritta.utils.locale.LocaleStringData
+import net.perfectdreams.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.utils.locale.LocaleStringData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.onReactionAddByAuthor
 import mu.KotlinLogging
@@ -54,7 +54,7 @@ abstract class AbstractCommand(open val label: String, var aliases: List<String>
 
 	@Deprecated("Please use getExamples(locale)")
 	open fun getExamples(): List<String> {
-		return getExamples(loritta.getLocaleById("default"))
+		return getExamples(loritta.localeManager.getLocaleById("default"))
 	}
 
 	open fun getExamples(locale: BaseLocale): List<String> {

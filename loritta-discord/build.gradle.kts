@@ -1,12 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-val loriVersion by lazy { ext["lori-version"] as String }
-val kotlinVersion by lazy { ext["kotlin-version"] as String }
-val ktorVersion by lazy { ext["ktor-version"] as String }
-val jdaVersion by lazy { ext["jda-version"] as String }
-val kotlinSerialization by lazy { ext["kotlin-serialization"] as String }
-val kotlinCoroutines by lazy { ext["kotlin-coroutines"] as String }
-
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
 }
@@ -14,7 +7,7 @@ tasks.withType<KotlinCompile> {
 plugins {
     java
     kotlin("jvm")
-    kotlin("plugin.serialization") version "1.4.30"
+    kotlin("plugin.serialization") version "1.4.10"
     `maven-publish`
 }
 
@@ -51,12 +44,12 @@ dependencies {
     api(kotlin("scripting-compiler"))
 
     // Kotlin Serialization
-    api("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerialization")
+    api("org.jetbrains.kotlinx:kotlinx-serialization-json:${Versions.KOTLIN_SERIALIZATION}")
 
     // Kotlin Coroutines
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutines")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:${Versions.KOTLIN_COROUTINES}")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.4.1")
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-debug:$kotlinCoroutines")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-debug:${Versions.KOTLIN_COROUTINES}")
 
     api("com.google.guava:guava:30.0-jre")
 
@@ -65,7 +58,7 @@ dependencies {
     api("com.github.ben-manes.caffeine:caffeine:2.8.6")
 
     // Discord
-    api("net.dv8tion:JDA:$jdaVersion")
+    api("net.dv8tion:JDA:${Versions.JDA}")
     api("club.minnced:discord-webhooks:0.5.0")
 
     // Exposed & Databases
@@ -73,9 +66,9 @@ dependencies {
     api("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.6")
     api("org.xerial:sqlite-jdbc:3.32.3.2")
     api("com.zaxxer:HikariCP:3.4.5")
-    api("org.jetbrains.exposed:exposed-core:0.28.1")
-    api("org.jetbrains.exposed:exposed-dao:0.28.1")
-    api("org.jetbrains.exposed:exposed-jdbc:0.28.1")
+    api("org.jetbrains.exposed:exposed-core:${Versions.EXPOSED}")
+    api("org.jetbrains.exposed:exposed-dao:${Versions.EXPOSED}")
+    api("org.jetbrains.exposed:exposed-jdbc:${Versions.EXPOSED}")
 
     api("org.apache.commons:commons-lang3:3.11")
     api("commons-codec:commons-codec:1.15")
@@ -84,10 +77,10 @@ dependencies {
     api("org.apache.commons:commons-collections4:4.4")
 
     // Ktor
-    api("io.ktor:ktor-server-core:$ktorVersion")
-    api("io.ktor:ktor-server-netty:$ktorVersion")
-    api("io.ktor:ktor-client-core:$ktorVersion")
-    api("io.ktor:ktor-client-apache:$ktorVersion")
+    api("io.ktor:ktor-server-core:${Versions.KTOR}")
+    api("io.ktor:ktor-server-netty:${Versions.KTOR}")
+    api("io.ktor:ktor-client-core:${Versions.KTOR}")
+    api("io.ktor:ktor-client-apache:${Versions.KTOR}")
 
     api("com.google.code.gson:gson:2.8.6")
     api("io.github.microutils:kotlin-logging:2.0.3")
@@ -130,14 +123,16 @@ tasks.test {
     useJUnitPlatform()
 }
 
-val fatJar = (extra["fat-jar-stuff"] as (String, Map<String, String>) -> (Task)).invoke(
+tasks {
+    val fatJar = fatJarTask(
+        configurations.runtimeClasspath.get(),
+        jar.get(),
         "com.mrpowergamerbr.loritta.LorittaLauncher",
         mapOf(
-                "JDA-Version" to jdaVersion
+            "JDA-Version" to Versions.JDA
         )
-)
+    )
 
-tasks {
     "build" {
         dependsOn(fatJar)
     }

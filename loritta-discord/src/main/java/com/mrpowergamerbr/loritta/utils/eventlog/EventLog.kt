@@ -9,7 +9,7 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.dao.StoredMessage
 import com.mrpowergamerbr.loritta.utils.extensions.await
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import com.mrpowergamerbr.loritta.utils.loritta
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
@@ -158,7 +158,7 @@ object EventLog {
 
 			if (eventLogConfig.enabled && eventLogConfig.voiceChannelJoins) {
 				val textChannel = member.guild.getTextChannelById(eventLogConfig.eventLogChannelId) ?: return
-				val locale = loritta.getLocaleById(serverConfig.localeId)
+				val locale = loritta.localeManager.getLocaleById(serverConfig.localeId)
 
 				if (!textChannel.canTalk())
 					return
@@ -199,7 +199,7 @@ object EventLog {
 
 			if (eventLogConfig.enabled && eventLogConfig.voiceChannelLeaves) {
 				val textChannel = member.guild.getTextChannelById(eventLogConfig.eventLogChannelId) ?: return
-				val locale = loritta.getLocaleById(serverConfig.localeId)
+				val locale = loritta.localeManager.getLocaleById(serverConfig.localeId)
 				if (!textChannel.canTalk())
 					return
 				if (!member.guild.selfMember.hasPermission(Permission.MESSAGE_EMBED_LINKS))

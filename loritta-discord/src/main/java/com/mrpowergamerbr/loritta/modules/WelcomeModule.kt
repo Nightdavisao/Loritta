@@ -48,14 +48,14 @@ object WelcomeModule {
 
 								if (textChannel != null) {
 									if (textChannel.canTalk()) {
-										if (guild.selfMember.hasPermission(Permission.MESSAGE_ATTACH_FILES)) {
+										if (guild.selfMember.hasPermission(textChannel, Permission.MESSAGE_ATTACH_FILES)) {
 											val lines = mutableListOf<String>()
 											for (user in v1) {
 												lines.add("${user.name}#${user.discriminator} - (${user.id})")
 											}
 											val targetStream = IOUtils.toInputStream(lines.joinToString("\n"), Charset.defaultCharset())
 
-											val locale = loritta.getLocaleById(serverConfig.localeId)
+											val locale = loritta.localeManager.getLocaleById(serverConfig.localeId)
 
 											textChannel.sendMessage(MessageBuilder().setContent(locale["modules.welcomer.tooManyUsersJoining", Emotes.LORI_OWO]).build()).addFile(targetStream, "join-users.log").queue()
 											logger.info("Enviado arquivo de texto em $k1 com todas as pessoas que entraram, yay!")
@@ -91,14 +91,14 @@ object WelcomeModule {
 
 								if (textChannel != null) {
 									if (textChannel.canTalk()) {
-										if (guild.selfMember.hasPermission(Permission.MESSAGE_ATTACH_FILES)) {
+										if (guild.selfMember.hasPermission(textChannel, Permission.MESSAGE_ATTACH_FILES)) {
 											val lines = mutableListOf<String>()
 											for (user in v1) {
 												lines.add("${user.name}#${user.discriminator} - (${user.id})")
 											}
 											val targetStream = IOUtils.toInputStream(lines.joinToString("\n"), Charset.defaultCharset())
 
-											val locale = loritta.getLocaleById(serverConfig.localeId)
+											val locale = loritta.localeManager.getLocaleById(serverConfig.localeId)
 
 											textChannel.sendMessage(MessageBuilder().setContent(locale["modules.welcomer.tooManyUsersLeaving", Emotes.LORI_OWO]).build()).addFile(targetStream, "left-users.log").queue()
 											logger.info("Enviado arquivo de texto em $k1 com todas as pessoas que sairam, yay!")
@@ -115,7 +115,7 @@ object WelcomeModule {
 	suspend fun handleJoin(event: GuildMemberJoinEvent, serverConfig: ServerConfig, welcomerConfig: WelcomerConfig) {
 		val joinLeaveConfig = welcomerConfig
 		val tokens = mapOf(
-				"humanized-date" to event.member.timeJoined.humanize(loritta.getLocaleById(serverConfig.localeId))
+				"humanized-date" to event.member.timeJoined.humanize(loritta.localeManager.getLocaleById(serverConfig.localeId))
 		)
 
 		logger.trace { "Member = ${event.member}, Guild ${event.guild} has tellOnJoin = ${joinLeaveConfig.tellOnJoin} and the joinMessage is ${joinLeaveConfig.joinMessage}, canalJoinId = ${joinLeaveConfig.channelJoinId}" }
@@ -149,7 +149,7 @@ object WelcomeModule {
 					val msg = joinLeaveConfig.joinMessage
 					logger.trace { "Member = ${event.member}, Join message is $msg for $guild, it will be sent at $textChannel"}
 
-					if (!msg.isNullOrEmpty() && event.guild.selfMember.hasPermission(Permission.MESSAGE_EMBED_LINKS)) {
+					if (!msg.isNullOrEmpty() && event.guild.selfMember.hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS)) {
 						val deleteJoinMessagesAfter = welcomerConfig.deleteJoinMessagesAfter
 						logger.debug { "Member = ${event.member}, Sending join message \"$msg\" in $textChannel at $guild"}
 
@@ -172,8 +172,22 @@ object WelcomeModule {
 			logger.debug { "Member = ${event.member}, sending join message (private channel) \"$msg\" at ${event.guild}"}
 
 			if (!msg.isNullOrEmpty()) {
+				val locale = loritta.localeManager.getLocaleById(serverConfig.localeId)
+
 				event.user.openPrivateChannel().queue {
-					it.sendMessage(MessageUtils.generateMessage(msg, listOf(event.guild, event.member), event.guild, tokens)!!).queue() // Pronto!
+					it.sendMessage(
+						MessageUtils.generateMessage(
+							MessageUtils.watermarkModuleMessage(
+								msg,
+								locale,
+								event.guild,
+								locale["modules.welcomer.moduleDirectMessageJoinType"]
+							),
+							listOf(event.guild, event.member),
+							event.guild,
+							tokens
+						)!!
+					).queue() // Pronto!
 				}
 			}
 		}
@@ -225,7 +239,7 @@ object WelcomeModule {
 					// Invalidar, já que a Loritta faz cache mesmo que o servidor não use a função
 					EventLogListener.bannedUsers.invalidate(bannedUserKey)
 
-					if (!msg.isNullOrEmpty()) {
+					if (!msg.isNullOrEmpty() && event.guild.selfMember.hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS)) {
 						val deleteRemoveMessagesAfter = welcomerConfig.deleteRemoveMessagesAfter
 						logger.debug { "User = ${event.user}, Member = ${event.member}, Sending quit message \"$msg\" in $textChannel at $guild"}
 

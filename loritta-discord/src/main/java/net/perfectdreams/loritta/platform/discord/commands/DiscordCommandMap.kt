@@ -1,33 +1,69 @@
 package net.perfectdreams.loritta.platform.discord.commands
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import com.mrpowergamerbr.loritta.commands.CommandManager
+import com.mrpowergamerbr.loritta.commands.vanilla.discord.ChannelInfoCommand
+import com.mrpowergamerbr.loritta.commands.vanilla.magic.PluginsCommand
 import com.mrpowergamerbr.loritta.dao.ServerConfig
 import com.mrpowergamerbr.loritta.events.LorittaMessageEvent
-import com.mrpowergamerbr.loritta.utils.*
+import com.mrpowergamerbr.loritta.utils.Constants
+import com.mrpowergamerbr.loritta.utils.DateUtils
+import com.mrpowergamerbr.loritta.utils.LorittaPermission
+import com.mrpowergamerbr.loritta.utils.LorittaUser
+import com.mrpowergamerbr.loritta.utils.LorittaUtils
+import com.mrpowergamerbr.loritta.utils.LorittaUtilsKotlin
+import com.mrpowergamerbr.loritta.utils.MessageUtils
+import com.mrpowergamerbr.loritta.utils.escapeMentions
 import com.mrpowergamerbr.loritta.utils.extensions.await
 import com.mrpowergamerbr.loritta.utils.extensions.awaitCheckForReplyErrors
 import com.mrpowergamerbr.loritta.utils.extensions.localized
 import com.mrpowergamerbr.loritta.utils.extensions.referenceIfPossible
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import com.mrpowergamerbr.loritta.utils.loritta
+import com.mrpowergamerbr.loritta.utils.lorittaShards
+import com.mrpowergamerbr.loritta.utils.stripCodeMarks
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.ChannelType
 import net.dv8tion.jda.api.exceptions.ErrorResponseException
 import net.dv8tion.jda.api.utils.MarkdownSanitizer
-import net.perfectdreams.loritta.api.commands.*
+import net.perfectdreams.loritta.api.commands.Command
+import net.perfectdreams.loritta.api.commands.CommandContext
+import net.perfectdreams.loritta.api.commands.CommandException
+import net.perfectdreams.loritta.api.commands.CommandMap
+import net.perfectdreams.loritta.api.commands.SilentCommandException
 import net.perfectdreams.loritta.api.messages.LorittaReply
+import net.perfectdreams.loritta.commands.vanilla.`fun`.FanArtsCommand
+import net.perfectdreams.loritta.commands.vanilla.`fun`.GiveawayCommand
+import net.perfectdreams.loritta.commands.vanilla.`fun`.GiveawayEndCommand
+import net.perfectdreams.loritta.commands.vanilla.`fun`.GiveawayRerollCommand
+import net.perfectdreams.loritta.commands.vanilla.`fun`.GiveawaySetupCommand
+import net.perfectdreams.loritta.commands.vanilla.administration.BanInfoCommand
+import net.perfectdreams.loritta.commands.vanilla.administration.ClearCommand
+import net.perfectdreams.loritta.commands.vanilla.economy.SonhosTopCommand
+import net.perfectdreams.loritta.commands.vanilla.economy.SonhosTopLocalCommand
+import net.perfectdreams.loritta.commands.vanilla.economy.TransactionsCommand
+import net.perfectdreams.loritta.commands.vanilla.magic.LoriToolsCommand
+import net.perfectdreams.loritta.commands.vanilla.misc.DiscordBotListCommand
+import net.perfectdreams.loritta.commands.vanilla.misc.DiscordBotListStatusCommand
+import net.perfectdreams.loritta.commands.vanilla.roblox.RbGameCommand
+import net.perfectdreams.loritta.commands.vanilla.roblox.RbUserCommand
+import net.perfectdreams.loritta.commands.vanilla.social.BomDiaECiaTopCommand
+import net.perfectdreams.loritta.commands.vanilla.social.BomDiaECiaTopLocalCommand
+import net.perfectdreams.loritta.commands.vanilla.social.RankGlobalCommand
+import net.perfectdreams.loritta.commands.vanilla.social.RepTopCommand
+import net.perfectdreams.loritta.commands.vanilla.social.XpNotificationsCommand
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
 import net.perfectdreams.loritta.tables.ExecutedCommandsLog
 import net.perfectdreams.loritta.utils.CommandCooldownManager
 import net.perfectdreams.loritta.utils.CommandUtils
 import net.perfectdreams.loritta.utils.Emotes
 import net.perfectdreams.loritta.utils.UserPremiumPlans
+import net.perfectdreams.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.utils.locale.LocaleStringData
 import net.perfectdreams.loritta.utils.metrics.Prometheus
 import org.jetbrains.exposed.sql.insert
 import java.sql.Connection
 import java.util.concurrent.CancellationException
-import java.util.concurrent.TimeUnit
 
 class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command<CommandContext>> {
 	companion object {
@@ -35,10 +71,49 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 	}
 
 	val commands = mutableListOf<Command<CommandContext>>()
-	private val userCooldown = Caffeine.newBuilder().expireAfterAccess(30L, TimeUnit.SECONDS)
-			.maximumSize(100)
-			.build<Long, Long>().asMap()
 
+	init {
+		registerAll(
+			// ===[ MAGIC ]===
+			LoriToolsCommand(discordLoritta),
+			PluginsCommand(discordLoritta),
+
+			// ===[ ECONOMY ]===
+			SonhosTopCommand(discordLoritta),
+			SonhosTopLocalCommand(discordLoritta),
+			TransactionsCommand(discordLoritta),
+
+			// ===[ SOCIAL ]===
+			BomDiaECiaTopCommand(discordLoritta),
+			BomDiaECiaTopLocalCommand(discordLoritta),
+			RankGlobalCommand(discordLoritta),
+			RepTopCommand(discordLoritta),
+			XpNotificationsCommand(discordLoritta),
+
+			// ===[ ADMIN ]===
+			BanInfoCommand(discordLoritta),
+			ClearCommand(discordLoritta),
+
+			// ===[ MISC ]===
+			FanArtsCommand(discordLoritta),
+			DiscordBotListCommand(discordLoritta),
+			DiscordBotListStatusCommand(discordLoritta),
+
+			// ===[ DISCORD ]===
+			ChannelInfoCommand(discordLoritta),
+
+			// ===[ FUN ]===
+			GiveawayCommand(discordLoritta),
+			GiveawayEndCommand(discordLoritta),
+			GiveawayRerollCommand(discordLoritta),
+			GiveawaySetupCommand(discordLoritta),
+
+			// ===[ ROBLOX ]===
+			RbUserCommand(discordLoritta),
+			RbGameCommand(discordLoritta)
+		)
+	}
+	
 	override fun register(command: Command<CommandContext>) {
 		logger.info { "Registering $command with ${command.labels}" }
 		commands.add(command)
@@ -104,22 +179,22 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 			val start = System.currentTimeMillis()
 
 			val rawArgs = rawArguments.joinToString(" ").stripCodeMarks()
-					.split(Constants.WHITE_SPACE_MULTIPLE_REGEX)
-					.drop(removeArgumentCount)
-					.toMutableList()
+				.split(Constants.WHITE_SPACE_MULTIPLE_REGEX)
+				.drop(removeArgumentCount)
+				.toMutableList()
 
 			val strippedArgs = MarkdownSanitizer.sanitize(rawArgs.joinToString(" ")).split(" ").toTypedArray()
 			val args = strippedArgs
 
 			val context = DiscordCommandContext(
-					loritta,
-					command,
-					rawArgs,
-					ev.message,
-					locale,
-					serverConfig,
-					lorittaUser,
-					validLabel
+				loritta,
+				command,
+				rawArgs,
+				ev.message,
+				locale,
+				serverConfig,
+				lorittaUser,
+				validLabel
 			)
 
 			if (ev.message.isFromType(ChannelType.TEXT)) {
@@ -133,14 +208,14 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					if (serverConfig.warnIfBlacklisted) {
 						if (serverConfig.blacklistedChannels.isNotEmpty() && ev.guild != null && ev.member != null && ev.textChannel != null) {
 							val generatedMessage = MessageUtils.generateMessage(
-									serverConfig.blacklistedWarning ?: "???",
-									listOf(ev.member, ev.textChannel),
-									ev.guild
+								serverConfig.blacklistedWarning ?: "???",
+								listOf(ev.member, ev.textChannel),
+								ev.guild
 							)
 							if (generatedMessage != null)
 								ev.textChannel.sendMessage(generatedMessage)
-										.referenceIfPossible(ev.message, serverConfig, true)
-										.awaitCheckForReplyErrors()
+									.referenceIfPossible(ev.message, serverConfig, true)
+									.awaitCheckForReplyErrors()
 						}
 					}
 					return true // Ignorar canais bloqueados (return true = fast break, se está bloqueado o canal no primeiro comando que for executado, os outros obviamente também estarão)
@@ -163,17 +238,38 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 				}
 
 				val (cooldownStatus, cooldownTriggeredAt, cooldown) = discordLoritta.commandCooldownManager.checkCooldown(
-						ev,
-						commandCooldown
+					ev,
+					commandCooldown
 				)
 
-				if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE) {
+				if (cooldownStatus.sendMessage) {
 					val fancy = DateUtils.formatDateDiff(cooldown + cooldownTriggeredAt, locale)
-					context.reply(
-							LorittaReply(
-									locale["commands.pleaseWaitCooldown", fancy, "\uD83D\uDE45"],
-									"\uD83D\uDD25"
+
+					val key = when (cooldownStatus) {
+						CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE ->
+							LocaleKeyData(
+								"commands.pleaseWaitCooldown",
+								listOf(
+									LocaleStringData(fancy),
+									LocaleStringData("\uD83D\uDE45")
+								)
 							)
+						CommandCooldownManager.CooldownStatus.RATE_LIMITED_SEND_MESSAGE_REPEATED ->
+							LocaleKeyData(
+								"commands.pleaseWaitCooldownRepeated",
+								listOf(
+									LocaleStringData(fancy),
+									LocaleStringData(Emotes.LORI_HMPF.toString())
+								)
+							)
+						else -> throw IllegalArgumentException("Invalid Cooldown Status $cooldownStatus, marked as send but there isn't any locale keys related to it!")
+					}
+
+					context.reply(
+						LorittaReply(
+							locale[key],
+							"\uD83D\uDD25"
+						)
 					)
 					return true
 				} else if (cooldownStatus == CommandCooldownManager.CooldownStatus.RATE_LIMITED_MESSAGE_ALREADY_SENT) return true
@@ -206,10 +302,10 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 						// oh no
 						val required = missingPermissions.joinToString(", ", transform = { "`" + it.localized(locale) + "`" })
 						context.reply(
-								LorittaReply(
-										locale["commands.loriDoesntHavePermissionDiscord", required, "\uD83D\uDE22", "\uD83D\uDE42"],
-										Constants.ERROR
-								)
+							LorittaReply(
+								locale["commands.loriDoesntHavePermissionDiscord", required, "\uD83D\uDE22", "\uD83D\uDE42"],
+								Constants.ERROR
+							)
 						)
 						return true
 					}
@@ -220,17 +316,17 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 
 					if (missingPermissions.isNotEmpty()) {
 						// oh no
-							val required = missingPermissions.joinToString(", ", transform = { "`" + locale["commands.loriPermission${it.name}"] + "`"})
+						val required = missingPermissions.joinToString(", ", transform = { "`" + locale["commands.loriPermission${it.name}"] + "`"})
 						var message = locale["commands.loriMissingPermission", required]
 
 						if (ev.member.hasPermission(Permission.ADMINISTRATOR) || ev.member.hasPermission(Permission.MANAGE_SERVER)) {
 							message += " ${locale["commands.loriMissingPermissionCanConfigure", loritta.instanceConfig.loritta.website.url]}"
 						}
 						context.reply(
-								LorittaReply(
-										message,
-										Constants.ERROR
-								)
+							LorittaReply(
+								message,
+								Constants.ERROR
+							)
 						)
 						return true
 					}
@@ -243,10 +339,10 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 
 				if (command.onlyOwner && !loritta.config.isOwner(user.id)) {
 					context.reply(
-							LorittaReply(
-									locale["commands.commandOnlyForOwner"],
-									Constants.ERROR
-							)
+						LorittaReply(
+							locale["commands.commandOnlyForOwner"],
+							Constants.ERROR
+						)
 					)
 					return true
 				}
@@ -257,10 +353,10 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					if (missingRequiredPermissions.isNotEmpty()) {
 						val required = missingRequiredPermissions.joinToString(", ", transform = { "`" + it.localized(locale) + "`" })
 						context.reply(
-								LorittaReply(
-										locale["commands.userDoesntHavePermissionDiscord", required],
-										Constants.ERROR
-								)
+							LorittaReply(
+								locale["commands.userDoesntHavePermissionDiscord", required],
+								Constants.ERROR
+							)
 						)
 						return true
 					}
@@ -268,10 +364,10 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 
 				if (context.isPrivateChannel && !command.canUseInPrivateChannel) {
 					context.reply(
-							LorittaReply(
-									message = locale["commands.cantUseInPrivate"],
-									prefix = Constants.ERROR
-							)
+						LorittaReply(
+							message = locale["commands.cantUseInPrivate"],
+							prefix = Constants.ERROR
+						)
 					)
 					return true
 				}
@@ -371,10 +467,10 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 					if (e.errorCode == 40005) { // Request entity too large
 						if (ev.isFromType(ChannelType.PRIVATE) || (ev.isFromType(ChannelType.TEXT) && ev.textChannel != null && ev.textChannel.canTalk()))
 							context.reply(
-									LorittaReply(
-											locale["commands.imageTooLarge", "8MB", Emotes.LORI_TEMMIE],
-											"\uD83E\uDD37"
-									)
+								LorittaReply(
+									locale["commands.imageTooLarge", "8MB", Emotes.LORI_TEMMIE],
+									"\uD83E\uDD37"
+								)
 							)
 						return true
 					}
@@ -399,8 +495,8 @@ class DiscordCommandMap(val discordLoritta: LorittaDiscord) : CommandMap<Command
 
 				if (ev.isFromType(ChannelType.PRIVATE) || (ev.isFromType(ChannelType.TEXT) && ev.textChannel != null && ev.textChannel.canTalk()))
 					ev.channel.sendMessage(reply)
-							.referenceIfPossible(ev.message, serverConfig, true)
-							.awaitCheckForReplyErrors()
+						.referenceIfPossible(ev.message, serverConfig, true)
+						.awaitCheckForReplyErrors()
 
 				return true
 			}

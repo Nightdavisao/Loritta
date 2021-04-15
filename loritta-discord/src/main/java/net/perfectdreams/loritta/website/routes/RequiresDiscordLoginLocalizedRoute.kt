@@ -8,13 +8,11 @@ import com.google.gson.JsonParser
 import com.mrpowergamerbr.loritta.Loritta
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.encodeToUrl
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import com.mrpowergamerbr.loritta.utils.lorittaShards
 import com.mrpowergamerbr.loritta.website.LorittaWebsite
 import io.ktor.application.*
-import io.ktor.http.*
 import io.ktor.request.*
-import io.ktor.response.*
 import io.ktor.sessions.*
 import kotlinx.coroutines.delay
 import mu.KotlinLogging
@@ -25,7 +23,7 @@ import net.perfectdreams.loritta.tables.BlacklistedGuilds
 import net.perfectdreams.loritta.utils.DiscordUtils
 import net.perfectdreams.loritta.utils.Emotes
 import net.perfectdreams.loritta.website.session.LorittaJsonWebSession
-import net.perfectdreams.loritta.website.utils.ScriptingUtils
+import net.perfectdreams.loritta.website.utils.RouteKey
 import net.perfectdreams.loritta.website.utils.WebsiteUtils
 import net.perfectdreams.loritta.website.utils.extensions.hostFromHeader
 import net.perfectdreams.loritta.website.utils.extensions.lorittaSession
@@ -35,7 +33,6 @@ import net.perfectdreams.loritta.website.utils.extensions.toJson
 import net.perfectdreams.loritta.website.utils.extensions.toWebSessionIdentification
 import net.perfectdreams.temmiediscordauth.TemmieDiscordAuth
 import org.jetbrains.exposed.sql.select
-import java.io.File
 import java.util.*
 
 abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path: String) : LocalizedRoute(loritta, path) {
@@ -168,7 +165,7 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 							val serverConfig = com.mrpowergamerbr.loritta.utils.loritta.getOrCreateServerConfig(guild.idLong)
 
 							// Agora nós iremos pegar o locale do servidor
-							val locale = com.mrpowergamerbr.loritta.utils.loritta.getLocaleById(serverConfig.localeId)
+							val locale = com.mrpowergamerbr.loritta.utils.loritta.localeManager.getLocaleById(serverConfig.localeId)
 
 							val userId = userIdentification.id
 
@@ -310,20 +307,17 @@ abstract class RequiresDiscordLoginLocalizedRoute(loritta: LorittaDiscord, path:
 		val profile = com.mrpowergamerbr.loritta.utils.loritta.getOrCreateLorittaProfile(userIdentification.id)
 		val bannedState = profile.getBannedState()
 		if (bannedState != null) {
-			val html = ScriptingUtils.evaluateWebPageFromTemplate(
-					File(
-							"${net.perfectdreams.loritta.website.LorittaWebsite.INSTANCE.config.websiteFolder}/views/user_banned.kts"
-					),
-					mapOf(
-							"path" to call.request.path().split("/").drop(2).joinToString("/"),
-							"websiteUrl" to net.perfectdreams.loritta.website.LorittaWebsite.INSTANCE.config.websiteUrl,
-							"locale" to locale,
-							"profile" to profile,
-							"bannedState" to bannedState
+			call.respondHtml(
+				net.perfectdreams.loritta.website.LorittaWebsite.INSTANCE.pageProvider.render(
+					RouteKey.USER_BANNED,
+					listOf(
+						getPathWithoutLocale(call),
+						locale,
+						profile,
+						bannedState
 					)
+				)
 			)
-
-			call.respondText(html, ContentType.Text.Html)
 			return
 		}
 

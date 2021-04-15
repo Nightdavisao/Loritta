@@ -2,7 +2,7 @@ package net.perfectdreams.loritta.commands.vanilla.`fun`
 
 import com.mrpowergamerbr.loritta.utils.*
 import com.mrpowergamerbr.loritta.utils.extensions.await
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import mu.KotlinLogging
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Role
@@ -39,7 +39,7 @@ class GiveawaySetupCommand(loritta: LorittaDiscord): DiscordAbstractCommandBase(
             if (args.isNotEmpty()) {
                 val customMessage = args.joinToString(" ")
 
-                val watermarkedMessage = MessageUtils.watermarkMessage(
+                val watermarkedMessage = MessageUtils.watermarkSayMessage(
                         customMessage,
                         context.user,
                         context.locale["$LOCALE_PREFIX.giveaway.giveawayCreatedBy"]
@@ -388,7 +388,7 @@ class GiveawaySetupCommand(loritta: LorittaDiscord): DiscordAbstractCommandBase(
         message.delete().await()
 
         GiveawayManager.spawnGiveaway(
-                loritta.getLocaleById(context.serverConfig.localeId),
+                loritta.localeManager.getLocaleById(context.serverConfig.localeId),
                 channel,
                 reason,
                 description,

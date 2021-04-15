@@ -2,8 +2,8 @@ package com.mrpowergamerbr.loritta.commands.vanilla.`fun`
 
 import com.mrpowergamerbr.loritta.commands.AbstractCommand
 import com.mrpowergamerbr.loritta.commands.CommandContext
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.stripCodeMarks
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.api.messages.LorittaReply
@@ -33,23 +33,18 @@ class AvaliarWaifuCommand : AbstractCommand("ratewaifu", listOf("avaliarwaifu", 
 			val random = SplittableRandom(Calendar.getInstance().get(Calendar.DAY_OF_YEAR) + waifuLowerCase.hashCode().toLong()) // Usar um RANDOM sempre com a mesma seed
 			val nota = random.nextInt(0, 11)
 
-			var reason = context.locale.getList("$LOCALE_PREFIX.note${nota}").random()
+			val scoreReason = context.locale.getList("${RateWaifuCommand.LOCALE_PREFIX}.note${nota}").random()
 
-			if (nota == 10)
-				reason = "$reason ${Emotes.LORI_WOW}"
-			if (nota == 9)
-				reason = "$reason ${Emotes.LORI_HEART}"
-			if (nota == 8)
-				reason = "$reason ${Emotes.LORI_PAT}"
-			if (nota == 7)
-				reason = "$reason ${Emotes.LORI_SMILE}"
-
-			if (nota == 3)
-				reason = "\uD83E\uDD26 ${Emotes.LORI_SHRUG}"
-			if (nota == 2)
-				reason = "\uD83E\uDD26 ${Emotes.LORI_HMPF}"
-			if (nota == 1)
-				reason = "$reason ${Emotes.LORI_RAGE}"
+			var reason = when (nota) {
+				10 -> "$scoreReason ${Emotes.LORI_WOW}"
+				9 -> "$scoreReason ${Emotes.LORI_HEART}"
+				8 -> "$scoreReason ${Emotes.LORI_PAT}"
+				7 -> "$scoreReason ${Emotes.LORI_SMILE}"
+				3 -> "$scoreReason ${Emotes.LORI_SHRUG}"
+				2 -> "$scoreReason ${Emotes.LORI_HMPF}"
+				1 -> "$scoreReason ${Emotes.LORI_RAGE}"
+				else -> scoreReason
+			}
 
 			var strNota = nota.toString()
 			if (waifuLowerCase == "loritta") {

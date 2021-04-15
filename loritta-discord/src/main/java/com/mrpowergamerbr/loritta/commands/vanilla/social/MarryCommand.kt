@@ -5,13 +5,12 @@ import com.mrpowergamerbr.loritta.commands.CommandContext
 import com.mrpowergamerbr.loritta.dao.Marriage
 import com.mrpowergamerbr.loritta.utils.Constants
 import com.mrpowergamerbr.loritta.utils.extensions.isEmote
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
-import com.mrpowergamerbr.loritta.utils.locale.LocaleKeyData
+import net.perfectdreams.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.LocaleKeyData
 import com.mrpowergamerbr.loritta.utils.loritta
 import com.mrpowergamerbr.loritta.utils.onReactionAdd
 import net.perfectdreams.loritta.api.commands.CommandCategory
 import net.perfectdreams.loritta.api.messages.LorittaReply
-import net.perfectdreams.loritta.utils.PaymentUtils
 import net.perfectdreams.loritta.utils.SonhosPaymentReason
 
 class MarryCommand : AbstractCommand("marry", listOf("casar"), CommandCategory.SOCIAL) {
@@ -198,19 +197,16 @@ class MarryCommand : AbstractCommand("marry", listOf("casar"), CommandCategory.S
 						profile.marriage = newMarriage
 						proposeToProfile.marriage = newMarriage
 
-						profile.takeSonhosNested(splitCost.toLong())
-						proposeToProfile.takeSonhosNested(splitCost.toLong())
+						val splitCostAsLong = splitCost.toLong()
 
-						PaymentUtils.addToTransactionLogNested(
-								splitCost.toLong(),
-								SonhosPaymentReason.MARRIAGE,
-								givenBy = profile.id.value
+						profile.takeSonhosAndAddToTransactionLogNested(
+							splitCostAsLong,
+							SonhosPaymentReason.MARRIAGE
 						)
 
-						PaymentUtils.addToTransactionLogNested(
-								splitCost.toLong(),
-								SonhosPaymentReason.MARRIAGE,
-								givenBy = proposeToProfile.id.value
+						proposeToProfile.takeSonhosAndAddToTransactionLogNested(
+							splitCostAsLong,
+							SonhosPaymentReason.MARRIAGE
 						)
 					}
 

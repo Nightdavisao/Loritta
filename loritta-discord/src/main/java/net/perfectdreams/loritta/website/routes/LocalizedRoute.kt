@@ -1,6 +1,6 @@
 package net.perfectdreams.loritta.website.routes
 
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import io.ktor.application.*
 import io.ktor.request.*
 import net.perfectdreams.loritta.platform.discord.LorittaDiscord
@@ -18,7 +18,7 @@ abstract class LocalizedRoute(val loritta: LorittaDiscord, val originalPath: Str
 		val localeIdFromPath = call.parameters["localeId"]
 
 		// Pegar a locale da URL e, caso não existir, faça fallback para o padrão BR
-		val locale = loritta.locales.values.firstOrNull { it.path == localeIdFromPath }
+		val locale = loritta.localeManager.locales.values.firstOrNull { it.path == localeIdFromPath }
 
 		if (locale != null) {
 			return onLocalizedRequest(

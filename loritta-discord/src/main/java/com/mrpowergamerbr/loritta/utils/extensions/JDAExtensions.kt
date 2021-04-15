@@ -2,7 +2,7 @@ package com.mrpowergamerbr.loritta.utils.extensions
 
 import com.mrpowergamerbr.loritta.LorittaLauncher.loritta
 import com.mrpowergamerbr.loritta.dao.ServerConfig
-import com.mrpowergamerbr.loritta.utils.locale.BaseLocale
+import net.perfectdreams.loritta.utils.locale.BaseLocale
 import kotlinx.coroutines.future.await
 import mu.KotlinLogging
 import net.dv8tion.jda.api.MessageBuilder
@@ -343,6 +343,7 @@ fun Permission.localized(locale: BaseLocale): String {
 		MANAGE_EMOTES -> locale["discord.permissions.manageEmotes"]
 		VOICE_STREAM -> locale["discord.permissions.voiceStream"]
 		VIEW_GUILD_INSIGHTS -> locale["discord.permissions.viewGuildInsights"]
+		USE_SLASH_COMMANDS -> locale["discord.permissions.useSlashCommands"]
 		UNKNOWN -> "This should never, ever happen!"
 	}
 }
